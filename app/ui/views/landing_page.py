@@ -36,12 +36,12 @@ def render_landing_page(
 
     with col2:
         with st.container(border=True):
-            st.markdown("### 💰 Explore the Unit Economics Model")
+            st.markdown("### 📐 Research, Product Decisions & Unit Economics")
             st.write(
-                "Calculate monthly enterprise cost savings comparing multi-GPU SLM ensembles ($1,700–$2,250/mo) "
-                "against lightweight ARM vCPU System 1 scoring ($210–$380/mo)."
+                "Read the step-by-step research on enterprise AIDR friction, our core product decisions, "
+                "and explore the transparent unit economics calculator with adjustable cloud compute assumptions."
             )
-            st.page_link(page_insights, label="View Cost Savings & Architecture →", icon="📐", use_container_width=True)
+            st.page_link(page_insights, label="Explore Product Insights & Economics →", icon="📐", use_container_width=True)
 
     st.divider()
 
@@ -54,7 +54,8 @@ def render_landing_page(
             st.caption("Omnichannel Coverage")
             st.write(
                 "Attributes originating traffic across Cursor, GitHub Copilot, Claude Desktop, "
-                "Antigravity CLI, or raw terminal curl using JA4, User-Agent, and virtual route profiles."
+                "Antigravity CLI, or raw terminal curl using JA4, User-Agent, and virtual route profiles "
+                "(and connects seamlessly to Chrome/Edge browser extensions & SWG taps for Copilot 365 / ChatGPT Web)."
             )
     with s2:
         with st.container(border=True):

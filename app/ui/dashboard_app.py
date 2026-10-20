@@ -61,7 +61,11 @@ def main():
         render_sandbox_dashboard_page()
 
     def _insights():
-        render_product_insights_view()
+        render_product_insights_view(
+            page_dashboard=page_refs["dashboard"],
+            page_home=page_refs["home"],
+            page_mcp=page_refs["mcp"],
+        )
 
     def _mcp_console():
         render_mcp_console_view()
@@ -83,15 +87,15 @@ def main():
 
     page_refs["home"] = st.Page(_home, title="Overview & Walkthrough", icon="🧭", default=True)
     page_refs["dashboard"] = st.Page(_dashboard, title="Live AIDR Control Deck", icon="🎛️")
-    page_refs["insights"] = st.Page(_insights, title="Architecture & Cost ROI", icon="📐")
-    page_refs["guides"] = st.Page(_mcp_guides, title="Guide: Claude & Cursor (Option 1)", icon="🖥️")
+    page_refs["insights"] = st.Page(_insights, title="Product Insights & Economics", icon="📐")
     page_refs["mcp"] = st.Page(_mcp_console, title="Console: FastMCP Agent (Option 2)", icon="🤖")
+    page_refs["guides"] = st.Page(_mcp_guides, title="Guide: Claude & Cursor (Option 1)", icon="🖥️")
     page_refs["inspector"] = st.Page(_mcp_inspector, title="Guide: MCP Inspector (Option 3)", icon="🔬")
 
     nav = st.navigation(
         {
             "Sandbox Core": [page_refs["home"], page_refs["dashboard"], page_refs["insights"]],
-            "MCP Integrations": [page_refs["guides"], page_refs["mcp"], page_refs["inspector"]],
+            "MCP Integrations": [page_refs["mcp"], page_refs["guides"], page_refs["inspector"]],
         }
     )
     nav.run()

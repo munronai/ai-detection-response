@@ -341,21 +341,23 @@ def render_sandbox_dashboard_page():
             ue_col3.metric("Traditional SLM Ensemble", f"${slm_cost_val:.6f}", delta="2-4 GPU Instances (150-250ms)", delta_color="inverse")
             ue_col4.metric("Net Run Savings", f"${run_savings_val:.6f}", delta=f"{pct_savings:.1f}% Saved", delta_color="normal")
 
-            with st.expander("📊 Unit Economics Cost Model & Fleet Extrapolation", expanded=False):
+            with st.expander("📊 Modeled Cost Assumptions & Fleet Extrapolation", expanded=False):
                 st.markdown("""
                 **Monthly Compute Cost Estimation Formula:**
                 $$\\text{Total Monthly Cost} = [N_{\\text{requests}} \\times \\text{Tokens}_{\\text{req}} \\times \\text{Cost}_{\\text{Inference}}] + \\text{Infra Fixed Cost} + \\text{Network Egress}$$
 
-                * **Traditional SLM Pipeline Baseline:**
-                  * Typically requires 2–4 specialized models running across redundant GPU instances (e.g. 2× AWS `g5.xlarge` @ ~$1.00–$1.50/hr each per region for high availability).
-                  * Baseline: **$1,500 – $2,200/month** per active region, plus autoscaling bursts during peak traffic hours.
-                * **Jev System 1 Model:**
+                * **Modeled SLM Pipeline Baseline (Estimation):**
+                  * Assumes 2–4 specialized models running across redundant GPU instances (e.g. 2× AWS `g5.xlarge` @ ~$1.00–$1.50/hr each per region for high availability).
+                  * Estimated baseline: **$1,500 – $2,200/month** per active region, plus autoscaling bursts during peak traffic hours.
+                * **Modeled Jev System 1 Architecture (Estimation):**
                   * Runs on lightweight general-purpose compute (e.g. AWS `c7g.xlarge` ARM vCPU @ ~$0.15–$0.25/hr) or edge-evaluated directly in API gateway sidecars (Envoy / Cloudflare Workers).
-                  * Baseline: **$150 – $350/month**.
-                * **Fleet ROI (Example: 20M Monthly Inspection Requests):**
-                  * SLM Ensemble GPU Footprint: **~$10,000 / month** ($120,000 / yr).
-                  * Jev System 1 Footprint: **~$200 / month** ($2,400 / yr).
-                  * **Projected Savings: 75% to 85%+ compute reduction ($117,600 / yr net savings)** alongside sub-15ms latency that protects developer Time-To-First-Token (TTFT).
+                  * Estimated baseline: **$150 – $350/month**.
+                * **Modeled Fleet Outcome (Example: 20M Monthly Inspection Requests):**
+                  * Modeled SLM GPU Footprint: **~$10,000 / month** ($120,000 / yr).
+                  * Modeled Jev System 1 Footprint: **~$200 / month** ($2,400 / yr).
+                  * **Projected Compute Savings: 75% to 85%+ reduction (~$117,600 / yr net savings)** alongside sub-15ms latency that protects developer Time-To-First-Token (TTFT).
+
+                *Note on Methodology: Figures represent engineering estimates based on public cloud compute benchmarks. They do not reflect confidential commercial pricing or proprietary infrastructure from specific commercial vendors.*
                 """)
 
     else:
