@@ -148,25 +148,38 @@ async def simulate_traffic_scenario(
 @mcp.tool()
 async def approve_policy_override(
     incident_id: str,
-    reason: str,
+    reason: str = "Authorized security exception approved by compliance officer",
+    approved_by: str = "SecurityAdmin",
 ) -> Dict[str, Any]:
     """
     Allows a compliance analyst or security engineer to approve or whitelist an incident
     flagged for review or blocked by policy.
     """
-    from app.gateway.proxy import INCIDENTS
+    from app.gateway.proxy import INCIDENTS, ensure_demo_incidents
+    ensure_demo_incidents()
 
     for inc in INCIDENTS:
         if inc.incident_id == incident_id:
+            prev_action = inc.applied_action.value
             inc.applied_action = InterventionAction.ALLOW
-            inc.jev_evaluation.reasoning_summary += f" [MANUAL OVERRIDE APPROVED: {reason}]"
+            inc.jev_evaluation.action_taken = InterventionAction.ALLOW
+            inc.jev_evaluation.reasoning_summary += f" [MANUAL OVERRIDE: {reason} (approved by {approved_by})]"
             return {
                 "status": "APPROVED",
                 "incident_id": incident_id,
-                "note": f"Incident updated to ALLOW by analyst: {reason}",
+                "previous_action": prev_action,
+                "new_action": "ALLOW",
+                "approved_by": approved_by,
+                "reason": reason,
+                "note": f"Incident '{incident_id}' updated from {prev_action} to ALLOW by {approved_by}: {reason}",
             }
 
-    return {"error": f"Incident ID '{incident_id}' not found in active audit stream."}
+    available_ids = [i.incident_id for i in INCIDENTS[-5:]]
+    return {
+        "error": f"Incident ID '{incident_id}' not found in active audit stream.",
+        "available_incident_ids": available_ids,
+        "hint": "Try using 'inc_demo_01' which is pre-seeded with a blocked AWS credential leak.",
+    }
 
 
 @mcp.tool()

@@ -11,6 +11,68 @@ from app.domain.presets import AIDR_PRESETS
 
 DEFAULT_MCP_URL = os.getenv("SANDBOX_MCP_URL", "http://127.0.0.1:8000/mcp/sse")
 
+# =============================================================================
+# TOOL METADATA: DESCRIPTIONS, NATURAL LANGUAGE PROMPTS & WIRE SCHEMAS
+# =============================================================================
+MCP_TOOL_EXAMPLES = {
+    "inspect_prompt_payload": {
+        "title": "Inspect Prompt Payload",
+        "description": "Performs full 4-stage AIDR inspection (Client Fingerprinting -> AST Context -> Jev System 1 Core -> Policy Enforcement) on any conversational prompt or code snippet.",
+        "sample_agent_prompt": (
+            "Can you use your inspect_prompt_payload tool to check if this user prompt leaks customer PII or sensitive data:\n"
+            "'Draft a dispute response for Alice Walker (DOB: 1982-04-14, account #9921-0021) regarding unauthorized card transaction £420.50'?"
+        ),
+        "sample_json_args": {
+            "prompt_text": "Draft customer dispute response for Alice Walker (DOB: 1982-04-14, address: 24 Elm Terrace, Bristol BS8 1TH) regarding unconfirmed credit card transaction £420.50 on account #9921-0021.",
+            "client_name": "Claude Desktop",
+        },
+        "default_text": "Draft customer dispute response for Alice Walker (DOB: 1982-04-14, address: 24 Elm Terrace, Bristol BS8 1TH) regarding unconfirmed credit card transaction £420.50 on account #9921-0021.",
+    },
+    "scan_source_code_snippet": {
+        "title": "Scan Source Code Snippet",
+        "description": "Evaluates Python code syntax via AST before running Jev System 1, applying a 95% discount if mock fixtures or test functions are detected.",
+        "sample_agent_prompt": (
+            "Please use scan_source_code_snippet to check if this unit test fixture is safe to send to upstream LLMs:\n"
+            "```python\ndef test_stripe_mock():\n    mock_key = 'sk_test_fake991283'\n    mock_ssn = '000-12-3456'\n    assert mock_key is not None\n```"
+        ),
+        "sample_json_args": {
+            "code_text": "def test_stripe_mock():\n    mock_key = 'sk_test_fake991283'\n    mock_ssn = '000-12-3456'\n    assert mock_key is not None",
+            "language": "python",
+        },
+        "default_text": "def test_stripe_mock():\n    mock_key = 'sk_test_fake991283'\n    mock_ssn = '000-12-3456'\n    assert mock_key is not None",
+    },
+    "simulate_traffic_scenario": {
+        "title": "Simulate Traffic Scenario",
+        "description": "Injects one of the 5 Golden AIDR Presets (Synthetic Fixtures, Benign Queries, Customer PII, AWS Secrets, Base64 Exfiltration) and returns the gatekeeper verdict.",
+        "sample_agent_prompt": (
+            "Simulate what happens if an engineer leaks AWS root credentials using simulate_traffic_scenario with preset_id='4_production_secret_leak'."
+        ),
+        "sample_json_args": {
+            "preset_id": "4_production_secret_leak",
+        },
+    },
+    "get_fleet_security_posture": {
+        "title": "Get Fleet Security Posture",
+        "description": "Queries live aggregated fleet telemetry, active developer client distribution, AST false-alarm drops, and dollar savings.",
+        "sample_agent_prompt": (
+            "Check our fleet security posture with get_fleet_security_posture and report total prompt scans, false alarms eliminated by AST, and cost savings."
+        ),
+        "sample_json_args": {},
+    },
+    "approve_policy_override": {
+        "title": "Approve Policy Override",
+        "description": "Allows a compliance analyst or security engineer to approve or whitelist an incident flagged for review or blocked by policy.",
+        "sample_agent_prompt": (
+            "Approve incident 'inc_demo_01' using approve_policy_override with reason='Authorized security testing in sandbox' and approved_by='SecurityAdmin'."
+        ),
+        "sample_json_args": {
+            "incident_id": "inc_demo_01",
+            "reason": "Authorized security testing in sandbox approved by compliance officer",
+            "approved_by": "SecurityAdmin",
+        },
+    },
+}
+
 
 def render_mcp_console_view():
     """Renders the interactive MCP console running live JSON-RPC calls over SSE."""
@@ -102,13 +164,7 @@ def render_mcp_console_view():
         st.subheader("2. Execute AIDR Tool Call")
         st.caption("Invoke tools dynamically via JSON-RPC 2.0 with full argument preview.")
 
-        tool_options = [
-            "inspect_prompt_payload",
-            "scan_source_code_snippet",
-            "simulate_traffic_scenario",
-            "get_fleet_security_posture",
-            "approve_policy_override",
-        ]
+        tool_options = list(MCP_TOOL_EXAMPLES.keys())
         default_tool_idx = 0
         if "mcp_selected_tool" in st.session_state and st.session_state["mcp_selected_tool"] in tool_options:
             default_tool_idx = tool_options.index(st.session_state["mcp_selected_tool"])
@@ -120,6 +176,18 @@ def render_mcp_console_view():
             key="mcp_tool_selector",
         )
 
+        tool_meta = MCP_TOOL_EXAMPLES.get(selected_tool, {})
+
+        # =====================================================================
+        # SAMPLE PROMPT & WIRE SCHEMA CALLING GUIDE FOR SELECTED TOOL
+        # =====================================================================
+        with st.expander(f"💡 Sample Prompt & Calling Guide for `{selected_tool}`", expanded=True):
+            st.markdown(f"**Tool Purpose:** {tool_meta.get('description', '')}")
+            st.markdown("💬 **Sample Agent Prompt (How to ask Claude / Cursor / LLM Agent):**")
+            st.code(tool_meta.get("sample_agent_prompt", ""), language="markdown")
+            st.markdown("🛠️ **Equivalent JSON-RPC 2.0 Wire Schema:**")
+            st.code(json.dumps(tool_meta.get("sample_json_args", {}), indent=2), language="json")
+
         preset_keys = list(AIDR_PRESETS.keys())
         default_preset_idx = 0
         if "mcp_selected_preset" in st.session_state and st.session_state["mcp_selected_preset"] in preset_keys:
@@ -127,7 +195,7 @@ def render_mcp_console_view():
 
         default_text = st.session_state.get(
             "mcp_input_text",
-            "def test_mock_token():\n    mock_key = 'sk_test_fake991283'\n    assert mock_key is not None",
+            tool_meta.get("default_text", "def test_mock_token():\n    mock_key = 'sk_test_fake991283'\n    assert mock_key is not None"),
         )
 
         # Tool parameters & rich preview
@@ -155,10 +223,33 @@ def render_mcp_console_view():
             st.info("ℹ️ `get_fleet_security_posture` queries aggregated fleet telemetry (no parameters needed).")
 
         elif selected_tool == "approve_policy_override":
-            param_input = st.text_input("Incident ID to Override", value="inc_demo_01")
-            st.caption("Approves an intervention and whitelists similar prompts.")
+            st.info(
+                "💡 **Pre-seeded Incident:** `inc_demo_01` is pre-loaded as a BLOCKED AWS root credential leak. "
+                "Executing this tool demonstrates how a security analyst manually whitelists the incident and transitions it to ALLOW."
+            )
+            col_ov1, col_ov2 = st.columns([1, 1])
+            with col_ov1:
+                override_inc_id = st.text_input("Incident ID to Override", value="inc_demo_01", help="Target incident ID to whitelist")
+            with col_ov2:
+                override_approver = st.text_input("Approved By", value="SecurityAdmin")
+            override_reason = st.text_input(
+                "Approval Reason / Justification",
+                value="Authorized security testing exception approved by compliance officer",
+            )
+            st.caption("Approves an intervention and transitions the incident verdict to ALLOW.")
+            param_input = {
+                "incident_id": override_inc_id.strip(),
+                "reason": override_reason.strip(),
+                "approved_by": override_approver.strip(),
+            }
 
         else:
+            col_in1, col_in2 = st.columns([0.70, 0.30])
+            with col_in2:
+                if st.button("📋 Load Sample Prompt", key=f"btn_load_sample_{selected_tool}", use_container_width=True):
+                    st.session_state["mcp_input_text"] = tool_meta.get("default_text", default_text)
+                    st.rerun()
+
             param_input = st.text_area("Input Prompt / Source Code", default_text, height=120)
             if selected_tool == "scan_source_code_snippet":
                 st.caption("💡 Evaluates code syntax via Python AST before running Jev System 1.")
@@ -179,7 +270,12 @@ def render_mcp_console_view():
                         elif selected_tool == "get_fleet_security_posture":
                             return await session.call_tool("get_fleet_security_posture", arguments={})
                         elif selected_tool == "approve_policy_override":
-                            return await session.call_tool("approve_policy_override", arguments={"incident_id": param_input, "approved_by": "SecurityAdmin"})
+                            override_args = param_input if isinstance(param_input, dict) else {
+                                "incident_id": str(param_input),
+                                "reason": "Authorized security exception approved by compliance officer",
+                                "approved_by": "SecurityAdmin",
+                            }
+                            return await session.call_tool("approve_policy_override", arguments=override_args)
                         elif selected_tool == "scan_source_code_snippet":
                             return await session.call_tool("scan_source_code_snippet", arguments={"code_text": param_input})
                         else:
@@ -199,4 +295,3 @@ def render_mcp_console_view():
                     st.json(parsed if parsed else str(result))
                 except Exception as exc:
                     st.error(f"Execution error: {exc}")
-

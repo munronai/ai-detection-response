@@ -173,10 +173,26 @@ def test_auth():
         sim_res = await simulate_traffic_scenario("4_production_secret_leak")
         assert sim_res["inspection_result"]["applied_action"] == "BLOCK"
 
-        # 3. Test approve_policy_override tool
+        # 3. Test approve_policy_override tool (both with explicit reason and with defaults/approved_by)
         incident_id = sim_res["inspection_result"]["incident_id"]
         override_res = await approve_policy_override(incident_id, "Authorized security test by lead engineer")
         assert override_res["status"] == "APPROVED"
+
+        # Verify fallback with defaults / approved_by
+        override_default = await approve_policy_override(incident_id=incident_id, approved_by="SecurityAdmin")
+        assert override_default["status"] == "APPROVED"
+        assert override_default["approved_by"] == "SecurityAdmin"
+
+        # Verify pre-seeded demo incident inc_demo_01 is always present and can be overridden
+        demo_override = await approve_policy_override(
+            incident_id="inc_demo_01",
+            reason="Security team authorized test credential in sandbox",
+            approved_by="SecurityAdmin",
+        )
+        assert demo_override["status"] == "APPROVED"
+        assert demo_override["incident_id"] == "inc_demo_01"
+        assert demo_override["previous_action"] == "BLOCK"
+        assert demo_override["new_action"] == "ALLOW"
 
         # 4. Test get_fleet_security_posture tool
         posture = await get_fleet_security_posture()

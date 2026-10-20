@@ -15,6 +15,7 @@ from app.config import settings
 from app.domain.models import (
     ASTAnalysisResult,
     ClientIdentity,
+    ClientType,
     DataClassification,
     FleetTelemetrySummary,
     InterventionAction,
@@ -136,6 +137,116 @@ def update_telemetry(record: PromptInspectionRecord):
     prev_mean = TELEMETRY.mean_jev_latency_ms
     current_latency = record.jev_evaluation.eval_time_ms + record.ast_analysis.analysis_time_ms
     TELEMETRY.mean_jev_latency_ms = round(((prev_mean * (n - 1)) + current_latency) / n, 2)
+
+
+def create_demo_incident(
+    incident_id: str,
+    client_name: str,
+    client_type: ClientType,
+    prompt_text: str,
+    action: InterventionAction,
+    classification: DataClassification,
+    raw_urgency: float,
+    calibrated_urgency: float,
+    is_mock: bool = False,
+    mock_penalty: float = 1.0,
+    reasoning: str = "",
+) -> PromptInspectionRecord:
+    """Constructs a deterministic demo incident record for testing and pre-seeding."""
+    return PromptInspectionRecord(
+        incident_id=incident_id,
+        client_identity=ClientIdentity(
+            client_type=client_type,
+            client_name=client_name,
+            detected_via="ROUTE_PROFILE",
+        ),
+        endpoint_path="/v1/chat/completions",
+        target_provider="OPENAI",
+        extracted_prompt_text=prompt_text,
+        token_count=len(prompt_text.split()),
+        ast_analysis=ASTAnalysisResult(
+            has_code=True,
+            language="python",
+            ast_parsable=True,
+            is_synthetic_test_fixture=is_mock,
+            confidence_penalty=mock_penalty,
+            reason="Synthetic test scope detected" if is_mock else "No mock fixture detected",
+        ),
+        jev_evaluation=JevEvaluation(
+            engine_used="JEV_SIMULATED",
+            is_synthetic_or_mock_prob=0.99 if is_mock else 0.05,
+            data_classification=classification,
+            raw_urgency_score=raw_urgency,
+            calibrated_urgency_score=calibrated_urgency,
+            eval_time_ms=11.5,
+            action_taken=action,
+            reasoning_summary=reasoning,
+        ),
+        applied_action=action,
+        total_pipeline_latency_ms=14.2,
+    )
+
+
+def seed_demo_incidents() -> List[PromptInspectionRecord]:
+    """Generates the baseline demo incidents including inc_demo_01."""
+    return [
+        create_demo_incident(
+            incident_id="inc_demo_01",
+            client_name="Direct API / curl",
+            client_type=ClientType.DIRECT_CURL,
+            prompt_text="Fix this S3 error: AWS_ACCESS_KEY_ID = 'AKIAIOSFODNN7EXAMPLE' and AWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'",
+            action=InterventionAction.BLOCK,
+            classification=DataClassification.LIVE_API_SECRET,
+            raw_urgency=0.98,
+            calibrated_urgency=0.98,
+            is_mock=False,
+            mock_penalty=1.0,
+            reasoning="[JEV_SIMULATED] Critical policy violation (0.98 >= 0.92): Live_API_Secret",
+        ),
+        create_demo_incident(
+            incident_id="inc_demo_02",
+            client_name="Claude Desktop (MCP)",
+            client_type=ClientType.CLAUDE_DESKTOP,
+            prompt_text="Draft customer dispute response for Alice Walker (DOB: 1982-04-14, address: 24 Elm Terrace, Bristol BS8 1TH, account #9921-0021).",
+            action=InterventionAction.NUDGE,
+            classification=DataClassification.CUSTOMER_PII,
+            raw_urgency=0.85,
+            calibrated_urgency=0.85,
+            is_mock=False,
+            mock_penalty=1.0,
+            reasoning="[JEV_SIMULATED] Moderate compliance alert (0.85 >= 0.80): Customer_PII",
+        ),
+        create_demo_incident(
+            incident_id="inc_demo_03",
+            client_name="Cursor IDE",
+            client_type=ClientType.CURSOR,
+            prompt_text="def test_stripe_webhook(): mock_ssn = '987-65-4321'; fake_stripe_key = 'sk_test_fake991283'; assert client.post('/webhook').status_code == 400",
+            action=InterventionAction.ALLOW,
+            classification=DataClassification.SYNTHETIC_TEST_FIXTURE,
+            raw_urgency=0.85,
+            calibrated_urgency=0.04,
+            is_mock=True,
+            mock_penalty=0.05,
+            reasoning="[JEV_SIMULATED] AST eliminated false positive: synthetic fixture discounted from 0.85 to 0.04",
+        ),
+    ]
+
+
+def ensure_demo_incidents() -> None:
+    """Ensures inc_demo_01 and baseline incidents are present in INCIDENTS."""
+    existing_ids = {inc.incident_id for inc in INCIDENTS}
+    if "inc_demo_01" not in existing_ids:
+        for demo in seed_demo_incidents():
+            if demo.incident_id not in existing_ids:
+                INCIDENTS.append(demo)
+                update_telemetry(demo)
+                existing_ids.add(demo.incident_id)
+
+
+# Seed initial demo incidents on startup
+for _demo in seed_demo_incidents():
+    INCIDENTS.append(_demo)
+    update_telemetry(_demo)
 
 
 async def execute_prompt_inspection_pipeline(
@@ -438,7 +549,10 @@ async def reset_telemetry(admin_key: Optional[str] = None):
     INCIDENTS.clear()
     global TELEMETRY
     TELEMETRY = FleetTelemetrySummary()
-    return {"status": "Telemetry and incident audit stream reset to clean state."}
+    for _demo in seed_demo_incidents():
+        INCIDENTS.append(_demo)
+        update_telemetry(_demo)
+    return {"status": "Telemetry and incident audit stream reset to clean state with baseline demo incidents."}
 
 
 @app.get("/api/v1/health")
