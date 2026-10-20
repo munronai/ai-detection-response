@@ -13,12 +13,15 @@
 
 This prototype and simulation sandbox demonstrates how modern enterprises can prevent AI prompt data loss, credential leakage, and intellectual property exfiltration **without** the latency penalties, developer alert fatigue, and GPU infrastructure costs of traditional multi-model Small Language Model (SLM) ensembles:
 
-* **AST Context Engine for False-Positive Elimination**: Uses Python's Abstract Syntax Tree (`ast`) to inspect function scopes, mock frameworks (`unittest.mock`, `pytest`), and synthetic identifiers (`mock_`, `fake_`, `test_`). When a synthetic test fixture is detected, it applies a **95% risk discount** (`0.05× multiplier`), eliminating false alarms on mock data and unit tests.
+* **AST Context Engine for False-Positive Elimination**: Uses Python's Abstract Syntax Tree (`ast`) to inspect function scopes, mock frameworks (`unittest.mock`, `pytest`), and synthetic identifiers (`mock_`, `fake_`, `test_`). When a synthetic test fixture is detected, it applies a **95% risk discount** (`0.05× multiplier`), eliminating false alarms on mock data and unit tests. For plain natural language prompts, it exits in **<0.05ms** (`is_code=False`) with zero overhead.
 * **TypeSafe AI Jev System 1 Core**: Replaces slow, autoregressive SLMs (50ms–250ms latency) with a non-autoregressive, direct probability-calibrating System 1 model (<15ms latency) evaluated in a single feedforward pass using calibrated `Noul` (binary), `Choice` (classification), and `Score` (urgency) primitives.
-* **Unified Tri-Pillar Architecture**:
-  * **Pillar 1 — Reverse Gateway**: High-performance FastAPI proxy (`/v1/chat/completions`, `/v1/messages`) with heuristic client fingerprinting (Cursor, Copilot, Claude Desktop, Antigravity CLI, direct API / curl).
-  * **Pillar 2 — FastMCP SSE Server**: Mounted at `/mcp` with transport security (DNS rebinding protection against HTTP 421) and tool endpoints for autonomous agents.
-  * **Pillar 3 — Streamlit Control Deck**: Interactive UI featuring a **4-Stage Step-by-Step Walkthrough Card**, live engine status indicator (Live TypeSafe AI API vs Simulated), scenario prompt previews, and per-simulation unit economics tracking.
+* **Omnichannel Enterprise Coverage**:
+  * **Developer & Agent Workflows**: Intercepted directly via FastAPI Reverse Proxy (`/v1/chat/completions`, `/v1/messages`) and FastMCP SSE Server (`/mcp/sse`) across Cursor, GitHub Copilot, Claude Desktop, and CLI agents.
+  * **Knowledge Worker & Browser Agents**: In enterprise production, the exact same low-latency Jev sidecar acts as the backend for managed browser extensions (Chrome/Edge for Microsoft 365 Copilot & ChatGPT Web) and Secure Web Gateways (Zscaler / Netskope / Cloudflare Zero Trust proxy taps) delivering sub-25ms zero-freeze UX.
+* **Streamlit Control Deck & Research Insights**:
+  * **Overview & Walkthrough**: 4-stage pipeline explanation, quick reference to 5 Golden Presets, and MCP integration paths.
+  * **Live AIDR Control Deck**: Interactive runner with 4-stage visual cards, live engine status toggle (Live TypeSafe AI API vs. Simulated), prompt payload previews, and per-simulation compute cost tracking.
+  * **Product Insights & Economics**: Step-by-step research rationale, core product decisions, deep-dive into browser agents / Copilot 365, comparative architectural benchmark, and transparent compute cost sensitivity calculator.
 
 ---
 
@@ -46,10 +49,10 @@ ai-detection-response/
 │       │   ├── kpi_header.py     # Fleet KPI telemetry banner
 │       │   └── pipeline_card.py  # 4-Stage visual sequence walkthrough card with unit economics
 │       └── views/
-│           ├── landing_page.py        # Overview, 4-stage pipeline, presets reference
+│           ├── landing_page.py        # Overview, 4-stage pipeline, presets reference, CTA cards
 │           ├── sandbox_dashboard.py    # Main Control Deck (engine indicator, prompt previews, unit economics)
-│           ├── product_insights.py     # AST false positive analysis, comparison table & ROI calculator
-│           ├── mcp_console.py          # Browser FastMCP console with 3-step demo script
+│           ├── product_insights.py     # Research rationale, product decisions, Copilot 365 deep dive & ROI calculator
+│           ├── mcp_console.py          # Browser FastMCP console with 3-step playbook & sample prompts
 │           └── mcp_guides.py           # Setup guides for Claude Desktop, Cursor, and MCP Inspector
 ├── tests/
 │   ├── test_sprint1.py           # AST parsing, client fingerprinting, proxy tests
@@ -117,31 +120,34 @@ JEV_MODE=live
 
 ---
 
-## 4. Control Deck Features & Walkthrough
+## 4. Multi-Page Navigation & Control Deck Features
 
-The visual control deck provides enterprise security operators and developers with end-to-end visibility into prompt data-in-motion:
+The Streamlit interface is organized into two primary navigation categories: **Sandbox Core** and **MCP Integrations**:
 
-1. **Authoritative Engine Status Panel**:
-   * Displays the active engine mode: `🧪 TEST / SIMULATED JEV` vs `🟢 LIVE TYPESAFE AI API`.
-   * Shows API key authentication status and current policy cutoffs (`Block ≥ 0.92`, `Nudge ≥ 0.80`, `Allow ≤ 0.30`).
-   * Provides an instant 1-click **"Switch Engine Mode"** toggle directly on the main deck.
-2. **Scenario Selector with Full Prompt Previews**:
-   * Inspect any of the **5 Golden Presets** before execution to preview the exact code payload, category, target client, and expected action.
-3. **4-Stage Visual Walkthrough Card**:
-   * **Stage 1 (Client Intake)**: Fingerprints originating client morphology and token density.
-   * **Stage 2 (AST Context Parser)**: Detects test scopes and mock fixtures, displaying the discount formula:
-     $$\text{Calibrated Urgency} = \text{Raw Urgency} \times 0.05$$
-   * **Stage 3 (Jev System 1 Core)**: Evaluates raw representations in $<15\text{ms}$ via feedforward matrix scoring.
-   * **Stage 4 (Enforcement & Routing)**: Enforces `ALLOW`, `NUDGE`, `REDACT`, or `BLOCK` with zero latency overhead.
-4. **Per-Simulation Unit Economics Breakdown**:
-   * Calculates token count, Jev System 1 compute cost ($0.000010 on ARM vCPU), traditional SLM ensemble cost ($0.000500 on multi-GPU nodes), and net run savings ($0.000490 / 98.0%).
-   * Displays monthly fleet cost modeling demonstrating **$117,600/year net savings** (75% to 85%+ compute reduction) at 20M monthly requests.
+### A. Sandbox Core
+1. **🧭 Overview & Guided Walkthrough (`landing_page.py`)**:
+   * Executive summary framing the friction of traditional SLM ensembles.
+   * Visual sequence guide for the 4-Stage Gatekeeper Pipeline.
+   * Quick-reference cards for the **5 Golden Presets** and direct one-click CTA paths to the Control Deck and Product Insights.
+
+2. **🎛️ Live AIDR Control Deck (`sandbox_dashboard.py`)**:
+   * **Authoritative Engine Status Panel**: Displays the active engine mode (`🧪 TEST / SIMULATED JEV` vs `🟢 LIVE TYPESAFE AI API`), authentication health, policy cutoffs (`Block ≥ 0.92`, `Nudge ≥ 0.80`, `Allow ≤ 0.30`), and an instant 1-click **"Switch Engine Mode"** toggle.
+   * **Scenario Selector with Prompt Previews**: Inspect any of the **5 Golden Presets** before execution to preview the exact code payload, category, target client, and expected action.
+   * **4-Stage Visual Walkthrough Card**: Inspect client fingerprinting, AST context analysis ($95\%$ synthetic fixture discount), Jev System 1 calibrated score ($<15\text{ms}$), and policy enforcement actions (`ALLOW`, `NUDGE`, `REDACT`, `BLOCK`).
+   * **Per-Simulation Unit Economics Breakdown**: Tracks token counts, Jev System 1 compute costs ($0.000010 on ARM vCPU), traditional multi-GPU SLM costs ($0.000500), and net run savings ($0.000490 / 98.0% reduction) alongside fleet-level cost extrapolation.
+
+3. **📐 Product Insights: Research, Architecture & Modeled Economics (`product_insights.py`)**:
+   * **Step 1 — The Research**: Documents the four operational friction points in enterprise AIDR (endpoint blind spots, the code context trap, TTFT latency degradation, and GPU infrastructure footprint).
+   * **Step 2 — The Core Product Decisions**: Explains why we chose Omnichannel Interception (decoupling the hook from the engine), AST Syntax Context Filtering, and Single-Pass System 1 Scoring.
+   * **Enterprise Deep Dive on Browser Agents & Microsoft 365 Copilot**: Details how the unified Jev engine protects non-coding staff on Chrome/Edge extensions and SWG/CASB forward proxies with sub-25ms zero-freeze UX, including instant $0.05\text{ms}$ AST bypass for plain natural language prompts.
+   * **Step 3 — Architectural Benchmark Table**: Side-by-side comparison of SLM ensembles vs. Jev + AST across latency, throughput, false-positive rate, hardware topology, and estimated baseline spend.
+   * **Step 4 — Interactive Sensitivity Calculator**: Interactive financial model allowing users to adjust monthly prompt volume, token length, GPU instance hourly rates, and ARM vCPU costs to calculate customized annual savings.
 
 ---
 
 ## 5. Model Context Protocol (MCP) Integration
 
-The sandbox exposes a FastMCP server at `/mcp/sse` supporting 3 integration options:
+The sandbox exposes a high-performance FastMCP server at `/mcp/sse` supporting 3 integration options:
 
 ### Option 1: Claude Desktop & Cursor IDE
 * **Claude Desktop**: Configure `claude_desktop_config.json` via the `mcp-remote` bridge:
@@ -161,10 +167,10 @@ The sandbox exposes a FastMCP server at `/mcp/sse` supporting 3 integration opti
   * URL: `http://127.0.0.1:8000/mcp/sse`
 
 ### Option 2: Browser MCP Console (Built-In)
-Navigate to the **🤖 MCP Agent Client Console** tab in the Streamlit UI to run live JSON-RPC tool invocations with a guided **3-Step Demo Playbook**:
-* **Step 1**: Inspect Synthetic Code (`scan_source_code_snippet`)
-* **Step 2**: Leak AWS Secret (`simulate_traffic_scenario` with `4_production_secret_leak`)
-* **Step 3**: Check Fleet Posture (`get_fleet_security_posture`)
+Navigate to the **🤖 Console: FastMCP Agent** page in the Streamlit UI to test live JSON-RPC tool invocations:
+* **Interactive Tool Calling**: Execute `inspect_prompt_payload`, `scan_source_code_snippet`, `approve_policy_override` (with pre-seeded demo incidents like `inc_demo_01`), and read resources (`aidr://posture`, `aidr://policies`).
+* **Real-World Sample User Prompts**: Each tool call displays an authentic agent user prompt showing how an LLM decides to trigger the gatekeeper tool in practice.
+* **Guided 3-Step Demo Playbook**: Walk step-by-step through synthetic fixture inspection, production secret blocking, and fleet posture verification.
 
 ### Option 3: Official MCP Inspector
 Run the reference developer tool from the Model Context Protocol team:
