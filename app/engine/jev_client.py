@@ -29,7 +29,7 @@ DATA_CLASSIFICATION_CRITERIA = {
     "Clean_Code_Or_Chat": "Benign general chat, public algorithms, formatting requests, or documentation questions",
     "Synthetic_Test_Fixture": "Synthetic identifiers, mock credit cards, test fixtures, or dummy tokens within unit tests",
     "Customer_PII": "Real consumer Personally Identifiable Information such as SSN, personal phone, address, or banking details",
-    "Live_API_Secret": "Production API keys, cloud root credentials, private SSH keys, or live database passwords",
+    "Live_API_Secret": "Production API keys, cloud root credentials, private SSH keys, or live database passwords. These may bein plaintext or base64 format",
     "Proprietary_Core_IP": "Core algorithmic proprietary IP, unreleased financial reports, or adversarial jailbreak prompts",
 }
 
@@ -142,7 +142,9 @@ async def evaluate_with_live_jev_api(
     mock_ans = raw_answers.get("is_synthetic_or_mock", {})
     if isinstance(mock_ans, dict):
         mock_prob = float(
-            mock_ans.get("noul", mock_ans.get("probability", mock_ans.get("true_prob", 0.5)))
+            mock_ans.get(
+                "noul", mock_ans.get("probability", mock_ans.get("true_prob", 0.5))
+            )
         )
     else:
         mock_prob = float(mock_ans)
@@ -164,7 +166,9 @@ async def evaluate_with_live_jev_api(
     # Extract or synthesize normalized probability distribution across choices
     choice_probs: Dict[str, float] = {}
     if isinstance(class_ans, dict):
-        prob_dict = class_ans.get("probabilities", class_ans.get("distribution", class_ans.get("scores", {})))
+        prob_dict = class_ans.get(
+            "probabilities", class_ans.get("distribution", class_ans.get("scores", {}))
+        )
         if isinstance(prob_dict, dict) and prob_dict:
             for k, v in prob_dict.items():
                 try:
@@ -177,7 +181,9 @@ async def evaluate_with_live_jev_api(
     if not choice_probs or len(choice_probs) < 2:
         top_prob = 0.52
         if isinstance(class_ans, dict):
-            top_prob = float(class_ans.get("probability", class_ans.get("confidence", 0.52)))
+            top_prob = float(
+                class_ans.get("probability", class_ans.get("confidence", 0.52))
+            )
             top_prob = max(0.45, min(0.95, top_prob))
 
         choice_probs[classification.value] = top_prob
@@ -219,7 +225,14 @@ async def evaluate_with_live_jev_api(
         raw_score_0_to_4 = float(urg_ans)
         normalized_score = max(0.0, min(1.0, raw_score_0_to_4 / max_idx))
 
-    return mock_prob, classification, normalized_score, choice_probs, data, raw_score_0_to_4
+    return (
+        mock_prob,
+        classification,
+        normalized_score,
+        choice_probs,
+        data,
+        raw_score_0_to_4,
+    )
 
 
 def simulate_jev_distributions(
@@ -234,18 +247,34 @@ def simulate_jev_distributions(
 
     # Rule-calibrated probability distributions
     has_live_aws = bool(re.search(r"AKIA[0-9A-Z]{16}", prompt_text))
-    has_live_private_key = "-----BEGIN RSA PRIVATE KEY-----" in prompt_text or "-----BEGIN OPENSSH PRIVATE KEY-----" in prompt_text
-    has_real_ssn = bool(re.search(r"\b(?!000|666|9\d\d)\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b", prompt_text))
+    has_live_private_key = (
+        "-----BEGIN RSA PRIVATE KEY-----" in prompt_text
+        or "-----BEGIN OPENSSH PRIVATE KEY-----" in prompt_text
+    )
+    has_real_ssn = bool(
+        re.search(r"\b(?!000|666|9\d\d)\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b", prompt_text)
+    )
     has_customer_pii = has_real_ssn or bool(
         re.search(
             r"\b(dob|birth|account #|residential address|invoice inv-|disputed a £|credit card transaction|bristol bs[0-9])\b",
             lower,
         )
     )
-    has_exfiltration = any(kw in lower for kw in ["exfiltrate", "bypass dlp", "jailbreak", "override guardrails", "base64"])
+    has_exfiltration = any(
+        kw in lower
+        for kw in [
+            "exfiltrate",
+            "bypass dlp",
+            "jailbreak",
+            "override guardrails",
+            "base64",
+        ]
+    )
 
     # Check for documentation sample keys like ...EXAMPLE in AWS keys (Preset 4 boundary case)
-    is_aws_example_key = has_live_aws and ("example" in lower or "fake" in lower or "mock" in lower)
+    is_aws_example_key = has_live_aws and (
+        "example" in lower or "fake" in lower or "mock" in lower
+    )
 
     if has_live_aws or has_live_private_key:
         mock_p = 0.02
@@ -374,14 +403,28 @@ async def evaluate_prompt_with_jev(
     if active_mode == "live" and api_key:
         engine_used = "JEV_LIVE_API"
         payload = build_typesafe_jev_payload(prompt_text, ast_res, client_name)
-        mock_prob, classification, raw_score, choice_probs, raw_response, raw_score_0_to_4 = await evaluate_with_live_jev_api(
+        (
+            mock_prob,
+            classification,
+            raw_score,
+            choice_probs,
+            raw_response,
+            raw_score_0_to_4,
+        ) = await evaluate_with_live_jev_api(
             payload=payload,
             api_key=api_key,
             api_url=api_url,
         )
     else:
         engine_used = "JEV_SIMULATED"
-        mock_prob, classification, raw_score, choice_probs, raw_response, raw_score_0_to_4 = simulate_jev_distributions(prompt_text, ast_res)
+        (
+            mock_prob,
+            classification,
+            raw_score,
+            choice_probs,
+            raw_response,
+            raw_score_0_to_4,
+        ) = simulate_jev_distributions(prompt_text, ast_res)
 
     # Core False-Positive Elimination:
     # If AST confirms synthetic test fixture, apply the confidence penalty discount
@@ -414,10 +457,14 @@ async def evaluate_prompt_with_jev(
         action = InterventionAction.REDACT
         reason = f"[{engine_used}] High sensitive data risk ({calibrated_score:.2f}): Redacting sensitive spans"
     elif calibrated_score >= settings.nudge_threshold or (
-        classification == DataClassification.CUSTOMER_PII and not ast_res.is_synthetic_test_fixture
+        classification == DataClassification.CUSTOMER_PII
+        and not ast_res.is_synthetic_test_fixture
     ):
         action = InterventionAction.NUDGE
-        if classification == DataClassification.CUSTOMER_PII and not ast_res.is_synthetic_test_fixture:
+        if (
+            classification == DataClassification.CUSTOMER_PII
+            and not ast_res.is_synthetic_test_fixture
+        ):
             reason = (
                 f"[{engine_used}] Customer PII policy warning (score {raw_score_0_to_4:.2f}/4.0, "
                 f"normalized {calibrated_score:.2f} >= {settings.nudge_threshold:.2f}): "
