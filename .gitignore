@@ -1,0 +1,53 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment and Secrets (CRITICAL: Do not commit live credentials or .env)
+.env
+.env.*
+!.env.example
+*.env
+
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Testing, Coverage & Profiling
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+
+# Type Checking & Linters
+.mypy_cache/
+.ruff_cache/
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editor Local Files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs & Local Runtime Caches
+*.log
+.modal/
+
+# Streamlit Local Secrets
+.streamlit/secrets.toml
