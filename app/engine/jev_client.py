@@ -44,9 +44,10 @@ def build_typesafe_jev_payload(
     Conforms strictly to the TypeSafe AI System 1 specification:
       - `state`: context dictionary containing client identity, AST metadata, and candidate text.
       - `questions`: typed questions mapping to `noul`, `choice`, and `score`.
+    Note: TypeSafe AI System 1 does not require a `model` parameter; omitting it defaults
+    automatically to the standard System 1 model on the server.
     """
-    return {
-        "model": os.getenv("TYPESAFE_MODEL", "jev-latest"),
+    payload: Dict[str, Any] = {
         "state": {
             "client_identity": {
                 "client_name": client_name,
@@ -91,6 +92,14 @@ def build_typesafe_jev_payload(
             },
         },
     }
+
+    # Required top-level model identifier for TypeSafe AI System 1 API
+    model = os.getenv("TYPESAFE_MODEL", "").strip().strip('"').strip("'")
+    if not model or model == "jev-system1-aidr":
+        model = "jev-latest"
+    payload["model"] = model
+
+    return payload
 
 
 async def evaluate_with_live_jev_api(

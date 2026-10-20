@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # TypeSafe AI Jev Settings
     typesafe_api_key: Optional[str] = os.getenv("TYPESAFE_API_KEY", None)
     typesafe_api_url: str = os.getenv("TYPESAFE_API_URL", "https://api.typesafe.ai/v1/systemone")
-    typesafe_model: str = os.getenv("TYPESAFE_MODEL", "jev-system1-aidr")
+    typesafe_model: str = os.getenv("TYPESAFE_MODEL", "jev-latest")
     jev_mode: str = "simulated"  # "simulated" or "live"
 
     # Default Policy Thresholds

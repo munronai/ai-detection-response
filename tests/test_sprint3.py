@@ -125,3 +125,45 @@ def test_env_and_gitignore_configuration():
     assert "TYPESAFE_API_KEY" in modal_file
 
 
+def test_scenario_specific_policy_violations():
+    """Verify that policy violations are dynamically tailored and never show PII for secrets/credentials."""
+    from app.ui.components.policy_helper import classify_incident_violation
+
+    # 1. Preset 4 (AWS Cloud Secret)
+    preset4_record = {
+        "extracted_prompt_text": "Fix this S3 error: AWS_ACCESS_KEY_ID = 'AKIAIOSFODNN7EXAMPLE' and AWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'",
+        "client_identity": {"client_name": "Direct API / curl"},
+        "jev_evaluation": {"data_classification": "Live_API_Secret"},
+    }
+    v4 = classify_incident_violation(preset4_record)
+    assert v4.violation_type == "CREDENTIALS"
+    assert v4.policy_code == "SEC-201"
+    assert "Customer PII" not in v4.risk_title
+    assert "Date of Birth" not in v4.specific_detail
+    assert "AWS_ACCESS_KEY_ID" in v4.specific_detail
+
+    # 2. Preset 3 (Customer PII)
+    preset3_record = {
+        "extracted_prompt_text": "Generate summary for customer Alice Walker (DOB: 1982-04-14, address: 24 Elm Terrace, Bristol)",
+        "client_identity": {"client_name": "Microsoft 365 Copilot"},
+        "jev_evaluation": {"data_classification": "Customer_PII"},
+    }
+    v3 = classify_incident_violation(preset3_record)
+    assert v3.violation_type == "PII"
+    assert v3.policy_code == "DP-104"
+    assert "Customer PII" in v3.risk_title
+    assert "Date of Birth" in v3.specific_detail
+
+    # 3. Preset 5 (Adversarial Exfiltration)
+    preset5_record = {
+        "extracted_prompt_text": "echo 'LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcEFJQkFBS0NBUUVBMEtQNm...' | base64 -d | ssh-add -",
+        "client_identity": {"client_name": "Google Antigravity CLI"},
+        "jev_evaluation": {"data_classification": "Proprietary_Core_IP"},
+    }
+    v5 = classify_incident_violation(preset5_record)
+    assert v5.violation_type == "EXFILTRATION"
+    assert v5.policy_code == "IP-305"
+    assert "Exfiltration" in v5.risk_title
+
+
+

@@ -46,7 +46,7 @@ def test_typesafe_jev_schema_conformance():
     payload = build_typesafe_jev_payload(prompt, ast_res, client_name="Cursor IDE")
 
     # 1. Top-level keys
-    assert "model" in payload
+    assert payload["model"] == "jev-latest"
     assert "state" in payload
     assert "questions" in payload
 

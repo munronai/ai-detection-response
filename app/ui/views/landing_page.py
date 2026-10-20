@@ -68,7 +68,7 @@ def render_landing_page(
     with s3:
         with st.container(border=True):
             st.markdown("#### 3️⃣ Jev System 1 Core")
-            st.caption("TypeSafe AI (<15ms, $0.00001)")
+            st.caption("TypeSafe AI (<25ms local, $0.00001)")
             st.write(
                 "Evaluates raw representations in a single feedforward pass using calibrated "
                 "`Noul` (mock prob), `Choice` (data class), and `Score` (urgency)."
@@ -88,7 +88,7 @@ def render_landing_page(
     st.markdown("## 🧪 5 Golden Presets Quick Reference")
     st.markdown("""
 1. **1️⃣ Synthetic Test Fixture**: Demonstrates AST eliminating a false positive on mock billing code in Cursor IDE.
-2. **2️⃣ Routine Developer Query**: Clean sorting query passed with sub-15ms latency in VS Code Copilot.
+2. **2️⃣ Routine Developer Query**: Clean sorting query passed with sub-25ms latency in VS Code Copilot.
 3. **3️⃣ Ambiguous Customer PII**: Unmasked DOB/address in Copilot 365 surfacing an inline policy warning dialog.
 4. **4️⃣ Production AWS Cloud Secret**: Live cloud credential terminated with HTTP 403 at perimeter.
 5. **5️⃣ Base64 Private Key Exfiltration**: Obfuscated payload caught by Jev exfiltration scoring in CLI agent.

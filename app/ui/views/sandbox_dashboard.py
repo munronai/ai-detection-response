@@ -11,6 +11,7 @@ from app.domain.presets import AIDR_PRESETS
 from app.ui.api_client import api_client
 from app.ui.components.kpi_header import render_error_banner, render_kpi_header
 from app.ui.components.pipeline_card import render_pipeline_walkthrough_card
+from app.ui.components.policy_helper import classify_incident_violation
 
 
 def render_sandbox_dashboard_page():
@@ -252,14 +253,16 @@ def render_sandbox_dashboard_page():
     with head1:
         st.title("🛡️ Enterprise AIDR & Jev Gatekeeper Control Deck")
         st.markdown(
-            "**Data-in-Motion AI Detection & Response** • **Sub-15ms Latency** • "
+            "**Data-in-Motion AI Detection & Response** • **Real-Time System 1 Gating** • "
             "**AST False-Positive Elimination** • **Dual-Mode Jev System 1**"
         )
     with head2:
+        tot_lat = active_incident.get("total_pipeline_latency_ms", 0) if active_incident else 0
+        lat_delta = f"{tot_lat:.1f}ms measured latency" if tot_lat > 0 else "Single-Pass Matrix Scoring"
         st.metric(
             label="Active Gatekeeper Engine",
             value="🟢 LIVE API" if current_engine_mode == "live" else "🧪 SIMULATED",
-            delta="Single-Pass Matrix Scoring (<15ms)",
+            delta=lat_delta,
             delta_color="normal" if current_engine_mode == "live" else "off",
         )
 
@@ -271,10 +274,10 @@ def render_sandbox_dashboard_page():
         with c_ind1:
             if current_engine_mode == "live":
                 st.markdown("##### 🟢 Gatekeeper State: **LIVE TYPESAFE AI API**")
-                st.caption(f"Endpoint: `{policy_state.get('typesafe_api_url', 'https://api.typesafe.ai/v1/systemone')}`")
+                st.caption(f"Remote Cloud Endpoint (`{policy_state.get('typesafe_api_url', 'https://api.typesafe.ai/v1/systemone')}`) — ~150–350ms HTTPS WAN round-trip (TLS + Internet)")
             else:
                 st.markdown("##### 🧪 Gatekeeper State: **TEST / SIMULATED JEV**")
-                st.caption("Offline calibrated probability model (deterministic evaluation in <15ms)")
+                st.caption("Offline calibrated probability model (<25ms local sidecar simulation)")
         with c_ind2:
             key_text = "🔑 TYPESAFE_API_KEY Configured" if has_typesafe_key else "🔒 No Key (Simulated Fallback)"
             st.markdown(f"**API Auth:** `{key_text}`")
@@ -358,60 +361,127 @@ def render_sandbox_dashboard_page():
                 )
 
             # 3. Simulated Frontline Screen: What the Employee Actually Sees
+            violation = classify_incident_violation(active_incident, client_name=client_name)
+
             with st.container(border=True):
                 st.markdown("#### 🖥️ Frontline User Screen: What the Employee Actually Sees")
 
                 if applied_action == "NUDGE":
                     st.warning(
-                        "### ⚠️ Corporate AI Policy Warning: Customer PII Detected\n\n"
-                        f"**{client_name}** intercepted an outbound prompt containing unmasked customer records "
-                        "*(e.g. unmasked Date of Birth and residential address)*.\n\n"
-                        "**Corporate Policy:** `DP-104 (Customer PII Protection & Data Minimization)`  \n"
-                        "**Required Action:** Please confirm this request complies with customer data governance before dispatching to external models."
+                        f"### ⚠️ Corporate AI Policy Warning: {violation.risk_title}\n\n"
+                        f"{violation.specific_detail}\n\n"
+                        f"**Corporate Policy:** `{violation.policy_name}`  \n"
+                        f"**Required Action:** {violation.required_action}"
                     )
                     sim_c1, sim_c2, sim_c3 = st.columns(3)
-                    with sim_c1:
-                        if st.button("✂️ Redact PII & Send", key="btn_sim_redact", use_container_width=True):
-                            st.session_state["frontline_sim_feedback"] = "redact"
-                    with sim_c2:
-                        if st.button("⚠️ Acknowledge Policy & Submit", key="btn_sim_ack", use_container_width=True, type="primary"):
-                            st.session_state["frontline_sim_feedback"] = "ack"
-                    with sim_c3:
-                        if st.button("🛑 Cancel Request", key="btn_sim_cancel", use_container_width=True):
-                            st.session_state["frontline_sim_feedback"] = "cancel"
+                    if violation.violation_type == "CREDENTIALS":
+                        with sim_c1:
+                            if st.button("✂️ Sanitize Keys (Use Env Vars)", key="btn_sim_sanitize_keys", use_container_width=True):
+                                st.session_state["frontline_sim_feedback"] = "sanitize_keys"
+                        with sim_c2:
+                            if st.button("⚠️ Request Security Exception", key="btn_sim_req_exception", use_container_width=True, type="primary"):
+                                st.session_state["frontline_sim_feedback"] = "req_exception"
+                        with sim_c3:
+                            if st.button("🛑 Abort Request", key="btn_sim_abort_req", use_container_width=True):
+                                st.session_state["frontline_sim_feedback"] = "abort_req"
 
-                    sim_fb = st.session_state.get("frontline_sim_feedback")
-                    if sim_fb == "ack":
-                        st.success(
-                            "✅ **User Confirmed:** Sales Manager acknowledged Policy DP-104 with reason: "
-                            "*'Authorized Q3 executive dispute review'*. Justification logged to SOC SIEM. Prompt dispatched to Copilot."
-                        )
-                    elif sim_fb == "redact":
-                        st.info(
-                            "✂️ **PII Masked:** Sensitive tokens sanitized: "
-                            "`Alice Walker (DOB: [REDACTED], address: [REDACTED_BRISTOL])`. Cleaned prompt forwarded safely."
-                        )
-                    elif sim_fb == "cancel":
-                        st.error("🛑 **User Cancelled:** Prompt aborted before egress. Zero data shared with external LLM.")
+                        sim_fb = st.session_state.get("frontline_sim_feedback")
+                        if sim_fb == "sanitize_keys":
+                            st.info(
+                                "✂️ **Keys Sanitized:** Live credentials replaced with `os.environ.get('AWS_ACCESS_KEY_ID')`. "
+                                "Safe sanitized script forwarded to backend target."
+                            )
+                        elif sim_fb == "req_exception":
+                            st.warning(
+                                "⚠️ **Exception Requested:** Cloud Infrastructure SRE logged justification under ticket `SEC-8821`. "
+                                "Escalated to Security Operations for review."
+                            )
+                        elif sim_fb == "abort_req":
+                            st.error("🛑 **User Aborted:** Prompt cancelled before egress. Zero cloud credentials leaked to external models.")
+
+                    elif violation.violation_type == "EXFILTRATION":
+                        with sim_c1:
+                            if st.button("🛡️ Sandbox Payload", key="btn_sim_sandbox_ip", use_container_width=True):
+                                st.session_state["frontline_sim_feedback"] = "sandbox_ip"
+                        with sim_c2:
+                            if st.button("⚠️ Request Clearance", key="btn_sim_clearance", use_container_width=True, type="primary"):
+                                st.session_state["frontline_sim_feedback"] = "clearance"
+                        with sim_c3:
+                            if st.button("🛑 Terminate Request", key="btn_sim_term_ip", use_container_width=True):
+                                st.session_state["frontline_sim_feedback"] = "term_ip"
+
+                        sim_fb = st.session_state.get("frontline_sim_feedback")
+                        if sim_fb == "sandbox_ip":
+                            st.info("🛡️ **Sandboxed:** Private key payload quarantined inside corporate hardware security enclave.")
+                        elif sim_fb == "clearance":
+                            st.warning("⚠️ **Clearance Requested:** High-priority SecOps escalation logged to corporate SIEM.")
+                        elif sim_fb == "term_ip":
+                            st.error("🛑 **Terminated:** Outbound stream terminated. Exfiltration attempt prevented.")
+
+                    else:  # PII or GENERAL
+                        with sim_c1:
+                            if st.button("✂️ Redact PII & Send", key="btn_sim_redact", use_container_width=True):
+                                st.session_state["frontline_sim_feedback"] = "redact"
+                        with sim_c2:
+                            if st.button("⚠️ Acknowledge Policy & Submit", key="btn_sim_ack", use_container_width=True, type="primary"):
+                                st.session_state["frontline_sim_feedback"] = "ack"
+                        with sim_c3:
+                            if st.button("🛑 Cancel Request", key="btn_sim_cancel", use_container_width=True):
+                                st.session_state["frontline_sim_feedback"] = "cancel"
+
+                        sim_fb = st.session_state.get("frontline_sim_feedback")
+                        if sim_fb == "ack":
+                            st.success(
+                                f"✅ **User Confirmed:** {persona_role} acknowledged Policy {violation.policy_code} with reason: "
+                                "*'Authorized executive customer dispute review'*. Justification logged to SOC SIEM. Prompt dispatched to target."
+                            )
+                        elif sim_fb == "redact":
+                            st.info(
+                                "✂️ **PII Masked:** Sensitive tokens sanitized: "
+                                "`Alice Walker (DOB: [REDACTED], address: [REDACTED_BRISTOL])`. Cleaned prompt forwarded safely."
+                            )
+                        elif sim_fb == "cancel":
+                            st.error("🛑 **User Cancelled:** Prompt aborted before egress. Zero data shared with external LLM.")
 
                 elif applied_action == "BLOCK":
-                    st.error(
-                        "### 🚫 Outbound Request Terminated by AI Security Policy SEC-201\n\n"
-                        "**Reason:** High-risk credentials detected (`Live AWS Root Key ID`).\n\n"
-                        "**Enforcement:** HTTP 403 Forbidden. Outbound payload was dropped at the network boundary before reaching external models.\n\n"
-                        f"**Security Telemetry:** Incident `{active_incident.get('incident_id')}` escalated to SOC incident response queue."
-                    )
+                    if violation.violation_type == "CREDENTIALS":
+                        st.error(
+                            f"### 🚫 Outbound Request Terminated by AI Security Policy {violation.policy_code}\n\n"
+                            f"**Reason:** High-risk credentials detected (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`).\n\n"
+                            f"**Enforcement:** HTTP 403 Forbidden. Outbound payload was dropped at the network boundary before reaching external models.\n\n"
+                            f"**Security Telemetry:** Incident `{active_incident.get('incident_id')}` escalated to SOC incident response queue under **Policy {violation.policy_name}**."
+                        )
+                    elif violation.violation_type == "EXFILTRATION":
+                        st.error(
+                            f"### 🚫 Outbound Request Terminated by AI Security Policy {violation.policy_code}\n\n"
+                            f"**Reason:** Adversarial exfiltration pattern detected (`Base64 Decoded RSA Private Key`).\n\n"
+                            f"**Enforcement:** HTTP 403 Forbidden. Outbound command dropped at perimeter before execution.\n\n"
+                            f"**Security Telemetry:** Incident `{active_incident.get('incident_id')}` quarantined under **Policy {violation.policy_name}**."
+                        )
+                    elif violation.violation_type == "PII":
+                        st.error(
+                            f"### 🚫 Outbound Request Terminated by AI Security Policy {violation.policy_code}\n\n"
+                            f"**Reason:** High volume unmasked customer PII records detected.\n\n"
+                            f"**Enforcement:** HTTP 403 Forbidden. Outbound prompt dropped at the gateway before external dispatch.\n\n"
+                            f"**Security Telemetry:** Incident `{active_incident.get('incident_id')}` recorded in data governance audit log under **Policy {violation.policy_name}**."
+                        )
+                    else:
+                        st.error(
+                            f"### 🚫 Outbound Request Terminated by AI Security Policy {violation.policy_code}\n\n"
+                            f"**Reason:** Critical policy violation detected by Jev Gatekeeper.\n\n"
+                            f"**Enforcement:** HTTP 403 Forbidden. Outbound payload was dropped at the network boundary.\n\n"
+                            f"**Security Telemetry:** Incident `{active_incident.get('incident_id')}` escalated to SOC incident response queue."
+                        )
                 elif applied_action == "ALLOW":
                     if ast_info.get("is_synthetic_test_fixture"):
                         st.success(
                             "### 🟢 Prompt Permitted (AST Verified Synthetic Fixture)\n\n"
                             "The AST Context Parser verified that mock payment keys are declared inside a `pytest` test fixture. "
-                            "A **95% false-positive discount** was applied. The developer experienced **zero disruption or false alarms** "
-                            "(evaluation completed in 12ms)."
+                            "A **95% false-positive discount** was applied. The developer experienced **zero disruption or false alarms**."
                         )
                     else:
                         st.success(
-                            "### 🟢 Clean Prompt Dispatched (<15ms)\n\n"
+                            "### 🟢 Clean Prompt Dispatched\n\n"
                             "Routine engineering query verified cleanly with zero policy violations. Upstream streaming initiated immediately."
                         )
 
@@ -536,7 +606,7 @@ def render_sandbox_dashboard_page():
               * Runs on lightweight general-purpose compute (e.g. AWS `c7g.xlarge` ARM vCPU @ ~$0.15–$0.25/hr) or edge-evaluated directly in API gateway sidecars (Envoy / Cloudflare Workers).
               * Estimated fixed baseline: **$150 – $350/month**.
             * **Latency ROI:**
-              * Beyond compute costs, Jev System 1 executes in **<15ms**, preventing the 150ms–250ms latency penalties that degrade developer Time-To-First-Token (TTFT) in IDEs.
+              * Beyond compute costs, Jev System 1 executes in **<25ms** (co-located sidecar / in-VPC) or ~150–350ms (cloud WAN with TLS), preventing the 1,500ms–2,500ms multi-model SLM latency penalties that degrade developer Time-To-First-Token (TTFT) in IDEs.
 
             *Note on Methodology: Figures represent engineering estimates based on public cloud compute benchmarks. They do not reflect confidential commercial pricing or proprietary infrastructure from specific commercial vendors.*
             """)
@@ -568,7 +638,7 @@ def render_sandbox_dashboard_page():
                   * A single 100-word prompt generates 500+ API calls.
                   * Creates massive rate limiting, token parsing costs, and UI jitter.
                 * **The Pre-Flight Boundary**: The gatekeeper is engaged **once when the user submits the prompt** (clicks 'Send', 'Generate', or hits Enter).
-                * **Sub-15ms Speed**: Because Jev evaluates in under 15ms, the safety check is completed imperceptibly before the target LLM streams its first token.
+                * **Real-Time Speed**: When deployed as an in-VPC sidecar or local daemon, Jev evaluates in under 25ms (or ~150–350ms over remote cloud WAN with TLS). The safety check is completed before or concurrently with the target LLM's upstream connection, avoiding the multi-second lag of traditional SLMs.
                 """)
 
         with g_col2:
@@ -577,7 +647,7 @@ def render_sandbox_dashboard_page():
                 st.markdown("""
                 1. **Stage 1 — Client Intake & Fingerprinting**: Intercepts prompts, detects originating client morphology (Cursor, Copilot, Claude Desktop, Antigravity CLI, curl), and measures token density.
                 2. **Stage 2 — AST Context Parser**: Analyzes syntax using Python's native `ast`. Test functions and synthetic mocks (`pytest.fixture`, `unittest.mock`) receive a **95% risk discount** to eliminate false alarms. Plain natural language exits in **<0.05ms** (`is_code=False`).
-                3. **Stage 3 — Jev System 1 Core**: Single-pass feedforward matrix evaluation (<15ms) generating calibrated probability distributions across `Noul`, `Choice`, and `Score`.
+                3. **Stage 3 — Jev System 1 Core**: Single-pass feedforward matrix evaluation (<25ms local sidecar / ~150–350ms cloud WAN) generating calibrated probability distributions across `Noul`, `Choice`, and `Score`.
                 4. **Stage 4 — Enforcement & Telemetry**: Applies deterministic policy routing (**`ALLOW`**, **`WARNING`**, **`REDACT`**, **`BLOCK`** with HTTP 403) and logs real-time economic cost savings.
                 """)
 

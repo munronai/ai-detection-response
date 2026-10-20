@@ -129,11 +129,11 @@ def render_product_insights_view(
     with d3:
         with st.container(border=True):
             st.markdown("### ⚡ Decision 3: Single-Pass System 1 Scoring (Jev)")
-            st.caption("**Sub-15ms Latency on Lightweight Compute**")
+            st.caption("**Real-Time Latency on Lightweight Compute (<25ms in-VPC)**")
             st.markdown(
                 "Instead of running multi-model autoregressive SLMs, we utilize a non-autoregressive, direct probability-calibrating "
                 "**TypeSafe AI Jev System 1 model**:\n"
-                "- Evaluates input representations in a **single feedforward pass (<15ms)**.\n"
+                "- Evaluates input representations in a **single feedforward pass (<25ms local / ~150–350ms cloud WAN)**.\n"
                 "- Operates on lightweight general-purpose CPU compute (e.g. AWS `c7g.xlarge` ARM vCPUs or gateway sidecars) without GPU overhead.\n"
                 "- Provides calibrated confidence scores across `Noul`, `Choice`, and `Score` primitives."
             )
@@ -150,7 +150,7 @@ def render_product_insights_view(
 
         #### 2. Handling Natural Language Prompts vs. Code
         * **Instant Fast-Path for Non-Code Prompts:** When a business user pastes financial earnings, customer complaints, or contract text into Copilot 365, the AST parser detects in **0.05ms** that no code syntax is present (`is_code=False`) and applies zero discount.
-        * **System 1 Intent & Entity Scoring:** The prompt immediately enters Jev System 1 classification. Jev evaluates corporate confidentiality, customer PII, and exfiltration risk in under 15ms.
+        * **System 1 Intent & Entity Scoring:** The prompt immediately enters Jev System 1 classification. Jev evaluates corporate confidentiality, customer PII, and exfiltration risk without sequential model pipeline lag.
         * **Hybrid Coding in Knowledge Tools:** If an analyst asks Copilot 365 to debug an Excel Python formula, SQL script, or mock data table, the AST parser seamlessly activates to prevent false-positive blocks on synthetic test data.
 
         #### 3. Preserving End-User Productivity with Interactive Policy Warnings
@@ -171,7 +171,7 @@ def render_product_insights_view(
     st.markdown("""
 | Evaluation Dimension | Specialized SLM Pipeline (e.g. DeBERTa/ModernBERT Ensembles) | Jev System 1 + AST Context Architecture |
 | :--- | :--- | :--- |
-| **Inference Latency** | 50ms – 250ms (sequential multi-model classification pipeline) | **< 15ms** (single-pass vector evaluation) |
+| **Inference Latency** | 50ms – 250ms (sequential multi-model classification pipeline) | **< 25ms** (single-pass vector evaluation in-VPC) / ~150–350ms (cloud WAN) |
 | **Throughput & Scaling** | Moderate; bounded by transformer sequence length & GPU VRAM | **High**; sub-quadratic matrix scoring on lightweight compute |
 | **Code False Positives** | **High** (Synthetically generated test keys and mock SSNs trigger alerts) | **Eliminated** (AST Context Parser discounts synthetic test fixtures by 95%) |
 | **Omnichannel Coverage** | Fragmented: browser extensions miss IDEs/CLI; proxy-only tools miss browser agents | **Unified Omnichannel**: Single low-latency engine backing Reverse Proxy, MCP, Browser Extensions & SWG taps |
@@ -298,7 +298,7 @@ def render_product_insights_view(
                 f"- **Monthly Fixed Infrastructure:** `${total_jev_infra:,.2f}`\n"
                 f"- **Modeled Jev Scoring Compute:** `${jev_inference_cost:,.2f}`\n"
                 f"- **Total Estimated Monthly Spend:** **`${total_jev_monthly_cost:,.2f}`**\n"
-                f"- **Latency Profile:** **`< 15ms per prompt`**"
+                f"- **Latency Profile:** **`< 25ms in-VPC sidecar / ~150–350ms cloud WAN`**"
             )
 
     st.divider()
@@ -328,7 +328,7 @@ def render_product_insights_view(
 
     with t2:
         with st.container(border=True):
-            st.markdown("#### 2️⃣ Test Sub-15ms Edge Block")
+            st.markdown("#### 2️⃣ Test Real-Time Edge Block")
             st.caption("Verify real credential termination at the edge")
             st.markdown(
                 "Inject **Preset 4 (Production AWS Secret Leak)**. "

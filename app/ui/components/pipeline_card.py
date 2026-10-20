@@ -3,6 +3,8 @@
 from typing import Any, Dict
 import streamlit as st
 
+from app.ui.components.policy_helper import classify_incident_violation
+
 
 ACTION_BANNERS = {
     "ALLOW": (
@@ -18,7 +20,7 @@ ACTION_BANNERS = {
     "NUDGE": (
         "⚠️ POLICY WARNING → Interactive Policy Warning Surface",
         "warning",
-        "Detected unmasked customer PII or sensitive project reference. Allowed with inline compliance warning dialog.",
+        "Detected sensitive data exceeding corporate policy threshold. Allowed with inline compliance warning dialog.",
     ),
     "REDACT": (
         "✂️ REDACTED → Sensitive Tokens Masked Before LLM Forwarding",
@@ -44,10 +46,21 @@ def render_pipeline_walkthrough_card(record: Dict[str, Any], key_prefix: str = "
     jev_eval = record.get("jev_evaluation", {})
     action = record.get("applied_action", "ALLOW")
 
-    title_text, banner_style, desc_text = ACTION_BANNERS.get(
-        action,
-        (f"Verdict: {action}", "info", "Evaluated by Jev Gatekeeper."),
-    )
+    violation = classify_incident_violation(record)
+
+    if action == "NUDGE":
+        title_text = f"⚠️ POLICY WARNING → {violation.risk_title}"
+        banner_style = "warning"
+        desc_text = violation.banner_nudge_desc
+    elif action == "BLOCK":
+        title_text = f"🛑 BLOCKED → {violation.risk_title} Terminated (HTTP 403)"
+        banner_style = "error"
+        desc_text = violation.banner_block_desc
+    else:
+        title_text, banner_style, desc_text = ACTION_BANNERS.get(
+            action,
+            (f"Verdict: {action}", "info", "Evaluated by Jev Gatekeeper."),
+        )
 
     # 1. Top Outcome Banner
     if banner_style == "success":
@@ -131,7 +144,7 @@ def render_pipeline_walkthrough_card(record: Dict[str, Any], key_prefix: str = "
     with c3:
         with st.container(border=True):
             st.markdown("##### 3️⃣ Stage 3: Jev System 1 Core")
-            st.caption("💡 **Why:** Single-pass feedforward matrix scoring in <15ms without SLM lag.")
+            st.caption("💡 **Why:** Single-pass feedforward matrix scoring without multi-model SLM lag.")
 
             engine_tag = jev_eval.get("engine_used", "JEV_SIMULATED")
             mock_p = float(jev_eval.get("is_synthetic_or_mock_prob", 0.0))
@@ -142,6 +155,10 @@ def render_pipeline_walkthrough_card(record: Dict[str, Any], key_prefix: str = "
 
             engine_badge = "🟢 LIVE API" if "LIVE" in engine_tag else "🧪 SIMULATED"
             st.markdown(f"**Engine:** `{engine_badge}` ({eval_time:.1f}ms)")
+            if eval_time > 100:
+                st.caption("🌐 Cloud WAN (HTTPS transit + TLS)")
+            else:
+                st.caption("⚡ Co-located sidecar / in-VPC forward pass")
 
             st.markdown(
                 f"- **Mock Prob (Noul):** `{mock_p:.0%}`\n"
@@ -175,9 +192,9 @@ def render_pipeline_walkthrough_card(record: Dict[str, Any], key_prefix: str = "
             if action == "ALLOW":
                 st.success("✅ **Forwarded to Target LLM**  \nTTFT latency unaffected.")
             elif action == "NUDGE":
-                st.warning("⚠️ **Policy Warning Triggered**  \nUser alerted with compliance confirmation.")
+                st.warning(f"⚠️ **{violation.policy_code} Warning Triggered**  \nUser alerted: {violation.risk_title}")
             elif action == "BLOCK":
-                st.error("🛑 **Egress Blocked!**  \nPayload terminated at edge.")
+                st.error(f"🛑 **{violation.policy_code} Blocked!**  \nPayload terminated at edge.")
             elif action == "REDACT":
                 st.warning("✂️ **Masked Credentials**  \nTokens replaced with placeholders.")
 

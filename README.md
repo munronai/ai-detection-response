@@ -14,7 +14,7 @@
 This prototype and simulation sandbox demonstrates how modern enterprises can prevent AI prompt data loss, credential leakage, and intellectual property exfiltration **without** the latency penalties, developer alert fatigue, and GPU infrastructure costs of traditional multi-model Small Language Model (SLM) ensembles:
 
 * **AST Context Engine for False-Positive Elimination**: Uses Python's Abstract Syntax Tree (`ast`) to inspect function scopes, mock frameworks (`unittest.mock`, `pytest`), and synthetic identifiers (`mock_`, `fake_`, `test_`). When a synthetic test fixture is detected, it applies a **95% risk discount** (`0.05× multiplier`), eliminating false alarms on mock data and unit tests. For plain natural language prompts, it exits in **<0.05ms** (`is_code=False`) with zero overhead.
-* **TypeSafe AI Jev System 1 Core**: Replaces slow, autoregressive SLMs (50ms–250ms latency) with a non-autoregressive, direct probability-calibrating System 1 model (<15ms latency) evaluated in a single feedforward pass using calibrated `Noul` (binary), `Choice` (classification), and `Score` (urgency) primitives.
+* **TypeSafe AI Jev System 1 Core**: Replaces slow, autoregressive SLMs (1,500ms–2,500ms multi-model GPU latency) with a non-autoregressive, direct probability-calibrating System 1 model (<25ms local sidecar inference, ~150–350ms remote cloud WAN round-trip) evaluated in a single feedforward pass using calibrated `Noul` (binary), `Choice` (classification), and `Score` (urgency) primitives.
 * **Omnichannel Enterprise Coverage**:
   * **Developer & Agent Workflows**: Intercepted directly via FastAPI Reverse Proxy (`/v1/chat/completions`, `/v1/messages`) and FastMCP SSE Server (`/mcp/sse`) across Cursor, GitHub Copilot, Claude Desktop, and CLI agents.
   * **Knowledge Worker & Browser Agents**: In enterprise production, the exact same low-latency Jev sidecar acts as the backend for managed browser extensions (Chrome/Edge for Microsoft 365 Copilot & ChatGPT Web) and Secure Web Gateways (Zscaler / Netskope / Cloudflare Zero Trust proxy taps) delivering sub-25ms zero-freeze UX.
@@ -96,7 +96,7 @@ Open `.env` and configure your credentials:
 # Optional: Set your TypeSafe AI key to test against live System 1 API
 TYPESAFE_API_KEY=your_typesafe_api_key_here
 TYPESAFE_API_URL=https://api.typesafe.ai/v1/systemone
-TYPESAFE_MODEL=jev-system1-aidr
+TYPESAFE_MODEL=jev-latest
 
 # Gateway Mode: "live" (uses TYPESAFE_API_KEY) or "simulated" (offline calibrated math)
 JEV_MODE=live
