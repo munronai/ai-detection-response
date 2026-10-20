@@ -2,7 +2,7 @@
 
 **An Alternative to Traditional Multi-Model SLM AI Detection & Response**
 
-[![Tests](https://img.shields.io/badge/Tests-21%20Passed-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-25%20Passed-brightgreen)](tests/)
 [![FastMCP](https://img.shields.io/badge/MCP-FastMCP%20SSE-blue)](app/mcp/)
 [![Python](https://img.shields.io/badge/Python-3.13%2B-blue)](pyproject.toml)
 [![Deployment](https://img.shields.io/badge/Modal-Serverless%20Ready-purple)](modal_deploy.py)
@@ -131,9 +131,14 @@ The Streamlit interface is organized into two primary navigation categories: **S
    * Quick-reference cards for the **5 Golden Presets** and direct one-click CTA paths to the Control Deck and Product Insights.
 
 2. **🎛️ Live AIDR Control Deck (`sandbox_dashboard.py`)**:
-   * **Authoritative Engine Status Panel**: Displays the active engine mode (`🧪 TEST / SIMULATED JEV` vs `🟢 LIVE TYPESAFE AI API`), authentication health, policy cutoffs (`Block ≥ 0.92`, `Warning ≥ 0.80`, `Allow ≤ 0.30`), and an instant 1-click **"Switch Engine Mode"** toggle.
+   * **Authoritative Engine Status & Policy Sliders**: Displays the active engine mode (`🧪 TEST / SIMULATED JEV` vs `🟢 LIVE TYPESAFE AI API`), authentication health, dynamic threshold sliders (`Block ≥ 0.88`, `Warning ≥ 0.60`, `Allow ≤ 0.20`), and the **Decision Ambiguity Margin slider** (`Ambiguity ≤ 0.15`), which detects close multiclass splits (e.g., 52% Synthetic vs 44% Secret) and elevates caution to prevent boundary false negatives.
    * **Scenario Selector with Prompt Previews**: Inspect any of the **5 Golden Presets** before execution to preview the exact code payload, category, target client, and expected action.
-   * **4-Stage Visual Walkthrough Card**: Inspect client fingerprinting, AST context analysis ($95\%$ synthetic fixture discount), Jev System 1 calibrated score ($<15\text{ms}$), and policy enforcement actions (`ALLOW`, `WARNING`, `REDACT`, `BLOCK`).
+   * **Balanced 4-Stage Visual Walkthrough Cards**: Compact, uniform cards for Stage 1 (Intake & Client Fingerprint), Stage 2 (AST Context Analysis with $95\%$ synthetic fixture discount), Stage 3 (Jev System 1 Core Evaluation with dual raw `0..4` and normalized `0.0..1.0` scores), and Stage 4 (Policy Enforcement: `ALLOW`, `WARNING`, `REDACT`, `BLOCK`).
+   * **Dedicated Stage 3 Deep-Dive Collapsible Card**: Sits directly below the pipeline walkthrough (collapsed by default) and is visually linked from the Stage 3 card. Features 3 dedicated inspection tabs:
+     * **`📊 Classification Distribution Chart`**: Full-width Altair probability bar chart pinned to the x-axis ($0.0$), margin alert diagnostics, and individual category probability metrics.
+     * **`❓ Audit Questions Sent to Jev`**: Detailed view of the exact inspection prompts, input types (`noul`, `choice`, `score`), candidate choices, and the authoritative 0–4 rubric scoring legend.
+     * **`📄 Raw Jev JSON Response`**: Complete, un-truncated JSON response payload returned directly from the TypeSafe AI System 1 API (`/v1/systemone`) or calibrated simulation with syntax highlighting.
+   * **Corporate Policy Violation Mapping**: Surfaces scenario-specific governance codes including `DP-104` (Customer PII Protection & Data Minimization), `SEC-201` (Live Cloud Secret Interception), and `IP-305` (Core IP & Smuggled Exfiltration Prevention).
    * **Per-Simulation Unit Economics Breakdown**: Tracks token counts, Jev System 1 compute costs ($0.000010 on ARM vCPU), traditional multi-GPU SLM costs ($0.000500), and net run savings ($0.000490 / 98.0% reduction) alongside fleet-level cost extrapolation.
 
 3. **📐 Product Insights: Research, Architecture & Modeled Economics (`product_insights.py`)**:
@@ -182,7 +187,7 @@ npx @modelcontextprotocol/inspector http://127.0.0.1:8000/mcp/sse
 
 ## 6. Automated Verification & Testing
 
-Run the full pytest suite (21 unit and integration tests):
+Run the full pytest suite (25 unit and integration tests):
 ```bash
 .venv/bin/python -m pytest tests/ -v
 ```
