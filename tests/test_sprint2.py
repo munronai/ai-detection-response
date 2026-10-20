@@ -210,21 +210,53 @@ def test_auth():
 
 
 def test_dynamic_policy_update():
-    """Verify dynamic threshold adjustments."""
+    """Verify dynamic threshold adjustments including decision ambiguity margin."""
     resp = client.put(
         "/api/v1/sandbox/policy",
-        json={"nudge_threshold": 0.75, "block_threshold": 0.90, "jev_mode": "simulated"},
+        json={"nudge_threshold": 0.75, "block_threshold": 0.90, "ambiguity_margin": 0.20, "jev_mode": "simulated"},
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["current_policy"]["nudge_threshold"] == 0.75
     assert data["current_policy"]["block_threshold"] == 0.90
+    assert data["current_policy"]["ambiguity_margin"] == 0.20
 
     # Reset back to default policy thresholds
     client.put(
         "/api/v1/sandbox/policy",
-        json={"nudge_threshold": 0.80, "block_threshold": 0.92, "jev_mode": "simulated"},
+        json={"nudge_threshold": 0.80, "block_threshold": 0.92, "ambiguity_margin": 0.15, "jev_mode": "simulated"},
     )
+
+
+def test_ambiguity_margin_slider_behavior():
+    """Verify that slider-set ambiguity margin determines whether boundary decisions trigger escalation."""
+    import asyncio
+    from app.engine.jev_client import evaluate_prompt_with_jev
+    from app.engine.ast_parser import parse_and_audit_code
+    from app.config import settings
+
+    async def _run():
+        prompt = "Fix AWS upload: AWS_ACCESS_KEY_ID = 'AKIAIOSFODNN7EXAMPLE' and AWS_SECRET_ACCESS_KEY = 'fake_secret_example'"
+        ast_res = parse_and_audit_code(prompt)
+
+        # 1. With wide margin slider (0.20): 8% margin <= 20% triggers ambiguity escalation
+        settings.ambiguity_margin = 0.20
+        eval_wide = await evaluate_prompt_with_jev(prompt, ast_res, client_name="test")
+        assert eval_wide.ambiguity_margin_applied == 0.20
+        assert eval_wide.decision_margin <= 0.20
+        assert eval_wide.is_ambiguous_decision is True
+
+        # 2. With narrow margin slider (0.02): 8% margin > 2% does NOT trigger ambiguity
+        settings.ambiguity_margin = 0.02
+        eval_narrow = await evaluate_prompt_with_jev(prompt, ast_res, client_name="test")
+        assert eval_narrow.ambiguity_margin_applied == 0.02
+        assert eval_narrow.decision_margin > 0.02
+        assert eval_narrow.is_ambiguous_decision is False
+
+        # Reset back
+        settings.ambiguity_margin = 0.15
+
+    asyncio.run(_run())
 
 
 def test_mcp_dns_rebinding_protection():

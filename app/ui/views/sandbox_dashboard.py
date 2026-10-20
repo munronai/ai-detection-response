@@ -32,9 +32,10 @@ def render_sandbox_dashboard_page():
     # Engine status details
     current_engine_mode = policy_state.get("jev_mode", st.session_state.get("ui_jev_mode", "simulated"))
     has_typesafe_key = policy_state.get("has_typesafe_api_key", False)
-    block_threshold = policy_state.get("block_threshold", 0.92)
-    nudge_threshold = policy_state.get("nudge_threshold", 0.80)
-    allow_threshold = policy_state.get("allow_threshold", 0.30)
+    block_threshold = policy_state.get("block_threshold", 0.88)
+    nudge_threshold = policy_state.get("nudge_threshold", 0.60)
+    allow_threshold = policy_state.get("allow_threshold", 0.20)
+    ambiguity_margin = policy_state.get("ambiguity_margin", 0.15)
 
     # =====================================================================
     # SIDEBAR: WORKSPACE SESSION, 5 PRESETS WITH PREVIEWS, CUSTOM BUILDER, SLIDERS
@@ -193,7 +194,7 @@ def render_sandbox_dashboard_page():
             )
             new_nudge_thresh = st.slider(
                 "Inline Policy Warning Threshold (formerly Nudge)",
-                0.50,
+                0.40,
                 0.90,
                 float(nudge_threshold),
                 0.05,
@@ -207,6 +208,19 @@ def render_sandbox_dashboard_page():
                 0.05,
                 help="Calibrated score below which traffic is passed with zero logging.",
             )
+            new_ambiguity_margin = st.slider(
+                "Decision Ambiguity Margin (Choice Split)",
+                0.00,
+                0.40,
+                float(ambiguity_margin),
+                0.01,
+                format="%.2f",
+                help=(
+                    "If the probability margin between the top two classification choices is <= this threshold "
+                    "(e.g. 52% Synthetic vs 44% Secret has margin 0.08 <= 0.15), the gatekeeper escalates caution "
+                    "to prevent false negatives on boundary payloads (e.g. documentation sample keys vs real secrets)."
+                ),
+            )
 
             if st.form_submit_button("Save Policy Thresholds", use_container_width=True):
                 st.session_state["ui_jev_mode"] = new_mode
@@ -216,11 +230,13 @@ def render_sandbox_dashboard_page():
                         "block_threshold": new_block_thresh,
                         "nudge_threshold": new_nudge_thresh,
                         "allow_threshold": new_allow_thresh,
+                        "ambiguity_margin": new_ambiguity_margin,
                     }
                 )
                 st.session_state["last_ui_feedback"] = (
                     f"🎚️ **Policy Updated:** Mode `{new_mode}` | Block $\\ge {new_block_thresh:.2f}$, "
-                    f"Nudge $\\ge {new_nudge_thresh:.2f}$, Allow $\\le {new_allow_thresh:.2f}$."
+                    f"Nudge $\\ge {new_nudge_thresh:.2f}$, Ambiguity $\\le {new_ambiguity_margin:.2f}$, "
+                    f"Allow $\\le {new_allow_thresh:.2f}$."
                 )
                 st.toast("Policy updated!", icon="✅")
                 st.rerun()
@@ -281,7 +297,7 @@ def render_sandbox_dashboard_page():
         with c_ind2:
             key_text = "🔑 TYPESAFE_API_KEY Configured" if has_typesafe_key else "🔒 No Key (Simulated Fallback)"
             st.markdown(f"**API Auth:** `{key_text}`")
-            st.markdown(f"**Cutoffs:** 🛑 Block $\\ge {block_threshold:.2f}$ | ⚠️ Warning $\\ge {nudge_threshold:.2f}$ | 🟢 Allow $\\le {allow_threshold:.2f}$")
+            st.markdown(f"**Cutoffs:** 🛑 Block $\\ge {block_threshold:.2f}$ | ⚠️ Warning $\\ge {nudge_threshold:.2f}$ | ⚖️ Ambiguity $\\le {ambiguity_margin:.2f}$ | 🟢 Allow $\\le {allow_threshold:.2f}$")
         with c_ind3:
             toggle_target = "live" if current_engine_mode == "simulated" else "simulated"
             toggle_label = "Switch to 🟢 Live API" if current_engine_mode == "simulated" else "Switch to 🧪 Simulated"

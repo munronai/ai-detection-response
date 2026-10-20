@@ -117,11 +117,12 @@ class AIDRApiClient:
             "jev_mode": "simulated",
             "has_typesafe_api_key": False,
             "typesafe_api_url": "https://api.typesafe.ai/v1/systemone",
-            "allow_threshold": 0.30,
-            "silent_log_threshold": 0.60,
-            "nudge_threshold": 0.80,
-            "redact_threshold": 0.92,
-            "block_threshold": 0.92,
+            "allow_threshold": 0.20,
+            "silent_log_threshold": 0.40,
+            "nudge_threshold": 0.60,
+            "redact_threshold": 0.88,
+            "block_threshold": 0.88,
+            "ambiguity_margin": 0.15,
         }
 
     def update_policy(self, policy_dict: Dict[str, Any]) -> Optional[Dict[str, Any]]:

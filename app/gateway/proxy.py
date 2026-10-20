@@ -55,6 +55,7 @@ class PolicyUpdateRequest(BaseModel):
     nudge_threshold: Optional[float] = None
     redact_threshold: Optional[float] = None
     block_threshold: Optional[float] = None
+    ambiguity_margin: Optional[float] = None
 
 
 class InjectPresetRequest(BaseModel):
@@ -176,6 +177,13 @@ def create_demo_incident(
             engine_used="JEV_SIMULATED",
             is_synthetic_or_mock_prob=0.99 if is_mock else 0.05,
             data_classification=classification,
+            classification_probabilities={
+                classification.value: 0.88,
+                "Clean_Code_Or_Chat": 0.08 if classification != DataClassification.CLEAN_CODE_OR_CHAT else 0.88,
+                "Synthetic_Test_Fixture": 0.02 if classification != DataClassification.SYNTHETIC_TEST_FIXTURE else 0.88,
+                "Customer_PII": 0.01 if classification != DataClassification.CUSTOMER_PII else 0.88,
+                "Live_API_Secret": 0.01 if classification != DataClassification.LIVE_API_SECRET else 0.88,
+            },
             raw_urgency_score=raw_urgency,
             calibrated_urgency_score=calibrated_urgency,
             eval_time_ms=11.5,
@@ -496,6 +504,7 @@ async def get_policy():
         "nudge_threshold": settings.nudge_threshold,
         "redact_threshold": settings.redact_threshold,
         "block_threshold": settings.block_threshold,
+        "ambiguity_margin": settings.ambiguity_margin,
     }
 
 
@@ -514,6 +523,8 @@ async def update_policy(req: PolicyUpdateRequest):
         settings.redact_threshold = req.redact_threshold
     if req.block_threshold is not None:
         settings.block_threshold = req.block_threshold
+    if req.ambiguity_margin is not None:
+        settings.ambiguity_margin = req.ambiguity_margin
 
     return {
         "status": "Policy updated successfully",
@@ -524,6 +535,7 @@ async def update_policy(req: PolicyUpdateRequest):
             "nudge_threshold": settings.nudge_threshold,
             "redact_threshold": settings.redact_threshold,
             "block_threshold": settings.block_threshold,
+            "ambiguity_margin": settings.ambiguity_margin,
         },
     }
 

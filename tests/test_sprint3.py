@@ -166,4 +166,60 @@ def test_scenario_specific_policy_violations():
     assert "Exfiltration" in v5.risk_title
 
 
+def test_choice_probabilities_and_raw_json_response():
+    """Verify that Jev evaluation generates full choice probability distributions and captures raw response."""
+    import asyncio
+    from app.engine.jev_client import evaluate_prompt_with_jev
+    from app.engine.ast_parser import parse_and_audit_code
+
+    async def _run():
+        # Test AWS Secret with documentation example key
+        prompt = "AWS_ACCESS_KEY_ID = 'AKIAIOSFODNN7EXAMPLE'"
+        ast_res = parse_and_audit_code(prompt)
+        jev_eval = await evaluate_prompt_with_jev(prompt, ast_res, client_name="pytest")
+
+        # 1. Verify probabilities distribution
+        assert isinstance(jev_eval.classification_probabilities, dict)
+        assert len(jev_eval.classification_probabilities) >= 4
+        assert "Live_API_Secret" in jev_eval.classification_probabilities
+        assert "Synthetic_Test_Fixture" in jev_eval.classification_probabilities
+        # Sum of probabilities should be ~1.0
+        assert 0.98 <= sum(jev_eval.classification_probabilities.values()) <= 1.02
+
+        # 2. Verify raw API response is captured
+        assert jev_eval.raw_api_response is not None
+        assert "answers" in jev_eval.raw_api_response
+        assert "data_classification" in jev_eval.raw_api_response["answers"]
+
+    asyncio.run(_run())
+
+
+def test_raw_score_and_preset3_customer_pii_action():
+    """Verify that raw 0..4 score is preserved and Customer PII (score ~3.0) triggers NUDGE, not SILENT_LOG."""
+    import asyncio
+    from app.engine.jev_client import evaluate_prompt_with_jev
+    from app.engine.ast_parser import parse_and_audit_code
+    from app.domain.models import InterventionAction, DataClassification
+
+    async def _run():
+        prompt = (
+            "Summarize customer account #482910-B: John Doe, DOB 1984-05-12, "
+            "residential address 14 High St, Bristol BS1 4AA. Disputed a £1,200 credit card transaction."
+        )
+        ast_res = parse_and_audit_code(prompt)
+        jev_eval = await evaluate_prompt_with_jev(prompt, ast_res, client_name="pytest")
+
+        # Verify raw score is on 0..4 scale and normalized score is raw / 4
+        assert jev_eval.raw_score > 2.0, f"Expected raw score > 2.0, got {jev_eval.raw_score}"
+        assert jev_eval.raw_urgency_score == round(jev_eval.raw_score / 4, 4)
+        assert jev_eval.data_classification == DataClassification.CUSTOMER_PII
+
+        # Must trigger NUDGE under Policy DP-104, never SILENT_LOG
+        assert jev_eval.action_taken == InterventionAction.NUDGE
+        assert "DP-104" in jev_eval.reasoning_summary or "Customer PII" in jev_eval.reasoning_summary
+
+    asyncio.run(_run())
+
+
+
 

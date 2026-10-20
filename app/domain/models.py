@@ -71,6 +71,14 @@ class JevEvaluation(BaseModel):
     engine_used: Literal["JEV_SIMULATED", "JEV_LIVE_API"] = "JEV_SIMULATED"
     is_synthetic_or_mock_prob: float = Field(..., description="Calibrated Noul probability that payload is mock data")
     data_classification: DataClassification = DataClassification.CLEAN_CODE_OR_CHAT
+    classification_probabilities: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Probability distribution across all candidate data classification choices",
+    )
+    raw_score: float = Field(
+        default=0.0,
+        description="Raw 0..4 score directly returned by Jev System 1",
+    )
     raw_urgency_score: float = Field(..., description="Raw Jev calibrated urgency score 0.0..1.0")
     calibrated_urgency_score: float = Field(
         ...,
@@ -79,6 +87,22 @@ class JevEvaluation(BaseModel):
     eval_time_ms: float = 0.0
     action_taken: InterventionAction = InterventionAction.ALLOW
     reasoning_summary: str = ""
+    ambiguity_margin_applied: float = Field(
+        default=0.15,
+        description="Ambiguity margin threshold applied during policy evaluation",
+    )
+    is_ambiguous_decision: bool = Field(
+        default=False,
+        description="True if the margin between top two choices was within ambiguity_margin",
+    )
+    decision_margin: float = Field(
+        default=1.0,
+        description="Observed probability difference between top 1 and top 2 choices",
+    )
+    raw_api_response: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Raw JSON response payload from TypeSafe AI System 1 API or simulation",
+    )
     estimated_inference_cost_usd: float = 0.00001
 
 

@@ -37,12 +37,14 @@ class Settings(BaseSettings):
     typesafe_model: str = os.getenv("TYPESAFE_MODEL", "jev-latest")
     jev_mode: str = "simulated"  # "simulated" or "live"
 
-    # Default Policy Thresholds
-    allow_threshold: float = 0.30
-    silent_log_threshold: float = 0.60
-    nudge_threshold: float = 0.80
-    redact_threshold: float = 0.92
-    block_threshold: float = 0.92
+    # Default Policy Thresholds (calibrated to 0..4 Jev System 1 scale)
+    # Level 0 (0.0): Allow | Level 1 (0.25): Silent Log | Level 2 & 3 (0.50 - 0.75): Nudge Warning | Level 4 (1.00): Block
+    allow_threshold: float = 0.20
+    silent_log_threshold: float = 0.40
+    nudge_threshold: float = 0.60
+    redact_threshold: float = 0.88
+    block_threshold: float = 0.88
+    ambiguity_margin: float = 0.15
 
     # Admin key for privileged operations / golden resets
     admin_key: str = os.getenv("SANDBOX_ADMIN_KEY", "jev-aidr-admin-2026")
