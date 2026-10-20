@@ -277,6 +277,14 @@ def test_mcp_dns_rebinding_protection():
             resp = await c.post("/mcp/messages/?session_id=nonexistent", json={})
             assert resp.status_code != 421
 
+        # 3. Modal wildcard host (e.g. *.modal.run) MUST pass host validation (not 421)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="https://mrmunro--jev-aidr-sandbox-api.us-east.modal.run",
+        ) as c:
+            resp = await c.post("/mcp/messages/?session_id=nonexistent", json={})
+            assert resp.status_code != 421
+
     asyncio.run(_check())
 
 

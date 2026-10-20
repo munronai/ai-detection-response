@@ -19,6 +19,7 @@ image = (
         "python-dotenv",
         "streamlit",
         "pandas",
+        "altair",
     )
     .add_local_python_source("app")
 )
@@ -28,47 +29,24 @@ image = (
 # =====================================================================
 def configure_modal_secrets() -> list:
     """
-    Resolves secrets for Modal deployment:
-    1. If a local `.env` file exists, automatically loads it via modal.Secret.from_dotenv(".env").
-       This allows testing with live Jev (TYPESAFE_API_KEY) without manual dashboard configuration.
-    2. Injects any host environment keys (TYPESAFE_API_KEY, JEV_MODE, etc.) if .env is missing.
-    3. Supports remote Modal Secret 'aidr-sandbox-secrets' or $MODAL_SECRET_NAME if defined.
+    Resolves secrets for Modal deployment.
+
+    Ensures a single, deterministic Secret dependency is registered across both
+    the local deployment CLI and remote container runtime, preventing Modal
+    ExecutionError dependency count mismatches:
+      1. If a custom Modal Secret name is specified via $MODAL_SECRET_NAME, use it.
+      2. If a local .env file exists (during local deployment), package it via modal.Secret.from_dotenv().
+         This injects TYPESAFE_API_KEY, TYPESAFE_API_URL, and related sandbox secrets.
+      3. Otherwise, fall back to the standard remote Modal Secret 'aidr-sandbox-secrets'.
     """
-    secrets = []
-
-    # 1. Automatic loading from local .env
-    if os.path.exists(".env"):
-        secrets.append(modal.Secret.from_dotenv(".env"))
-
-    # 2. Host environment variables fallback
-    host_keys = {
-        k: os.environ[k]
-        for k in [
-            "TYPESAFE_API_KEY",
-            "TYPESAFE_API_URL",
-            "TYPESAFE_MODEL",
-            "JEV_MODE",
-            "OPENAI_API_KEY",
-            "ANTHROPIC_API_KEY",
-            "GEMINI_API_KEY",
-            "SANDBOX_ADMIN_KEY",
-        ]
-        if k in os.environ
-    }
-    if host_keys and not os.path.exists(".env"):
-        secrets.append(modal.Secret.from_dict(host_keys))
-
-    # 3. Optional remote Modal Secret by name
     remote_secret_name = os.getenv("MODAL_SECRET_NAME")
     if remote_secret_name:
-        secrets.append(modal.Secret.from_name(remote_secret_name))
-    elif not secrets:
-        try:
-            secrets.append(modal.Secret.from_name("aidr-sandbox-secrets"))
-        except Exception:
-            pass
+        return [modal.Secret.from_name(remote_secret_name)]
 
-    return secrets
+    if os.path.exists(".env"):
+        return [modal.Secret.from_dotenv(".env")]
+
+    return [modal.Secret.from_name("aidr-sandbox-secrets")]
 
 
 SECRETS = configure_modal_secrets()

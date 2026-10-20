@@ -25,6 +25,10 @@ This prototype and simulation sandbox demonstrates how modern enterprises can pr
 
 ---
 
+:link: [Click for live demo](https://mrmunro--jev-aidr-sandbox-dashboard.us-east.modal.run/)
+
+---
+
 ## 2. Directory Structure
 
 ```
@@ -180,7 +184,7 @@ Navigate to the **🤖 Console: FastMCP Agent** page in the Streamlit UI to test
 ### Option 3: Official MCP Inspector
 Run the reference developer tool from the Model Context Protocol team:
 ```bash
-npx @modelcontextprotocol/inspector http://127.0.0.1:8000/mcp/sse
+npx @modelcontextprotocol/inspector@latest http://127.0.0.1:8000/mcp/sse
 ```
 
 ---

@@ -1,10 +1,14 @@
 """FastMCP Server exposing AIDR Inspection Tools and Telemetry Resources."""
 
 import json
+import logging
 import os
+import fnmatch
 from typing import Any, Dict, List, Literal, Optional
 from mcp.server.mcpserver import MCPServer
-from mcp.server.transport_security import TransportSecuritySettings
+from mcp.server.transport_security import TransportSecurityMiddleware, TransportSecuritySettings
+
+logger = logging.getLogger(__name__)
 
 from app.domain.models import (
     ClientIdentity,
@@ -18,26 +22,89 @@ from app.engine.jev_client import evaluate_prompt_with_jev
 
 # Modal & Local Transport Security Settings
 MODAL_HOST = os.getenv("MODAL_APP_HOST", "*.modal.run")
+EXTRA_HOSTS = [h.strip() for h in os.getenv("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()]
+
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "127.0.0.1:*",
+    "localhost",
+    "localhost:*",
+    "[::1]",
+    "[::1]:*",
+    "*.modal.run",
+    "*.modal.run:*",
+    "*.modal.direct",
+    "*.modal.direct:*",
+]
+if MODAL_HOST:
+    ALLOWED_HOSTS.extend([MODAL_HOST, f"{MODAL_HOST}:*"])
+ALLOWED_HOSTS.extend(EXTRA_HOSTS)
+
+ALLOWED_ORIGINS = [
+    "http://127.0.0.1:*",
+    "http://localhost:*",
+    "http://[::1]:*",
+    "https://*.modal.run",
+    "https://*.modal.direct",
+]
+if MODAL_HOST:
+    ALLOWED_ORIGINS.extend([f"https://{MODAL_HOST}", f"https://{MODAL_HOST}:*"])
 
 MCP_TRANSPORT_SECURITY = TransportSecuritySettings(
     enable_dns_rebinding_protection=True,
-    allowed_hosts=[
-        "127.0.0.1",
-        "127.0.0.1:*",
-        "localhost",
-        "localhost:*",
-        "[::1]",
-        "[::1]:*",
-        "*.modal.run",
-        "*.modal.run:*",
-    ],
-    allowed_origins=[
-        "http://127.0.0.1:*",
-        "http://localhost:*",
-        "http://[::1]:*",
-        "https://*.modal.run",
-    ],
+    allowed_hosts=ALLOWED_HOSTS,
+    allowed_origins=ALLOWED_ORIGINS,
 )
+
+
+# ---------------------------------------------------------------------
+# Enhance MCP TransportSecurityMiddleware to support wildcard host/origin
+# matching (e.g. *.modal.run or *.modal.direct for cloud deployments)
+# ---------------------------------------------------------------------
+def _enhanced_validate_host(self, host: str | None) -> bool:
+    if not host:
+        logger.warning("Missing Host header in request")
+        return False
+
+    # 1. Exact match
+    if host in self.settings.allowed_hosts:
+        return True
+
+    # 2. Port and wildcard hostname matching (e.g. *.modal.run)
+    host_without_port = host.split(":")[0] if ":" in host and not host.startswith("[") else host
+    for allowed in self.settings.allowed_hosts:
+        if allowed.endswith(":*"):
+            base_host = allowed[:-2]
+            if host.startswith(base_host + ":") or fnmatch.fnmatch(host_without_port, base_host):
+                return True
+        if fnmatch.fnmatch(host, allowed) or fnmatch.fnmatch(host_without_port, allowed):
+            return True
+
+    logger.warning(f"Invalid Host header: {host}")
+    return False
+
+
+def _enhanced_validate_origin(self, origin: str | None) -> bool:
+    if not origin:
+        return True
+
+    if origin in self.settings.allowed_origins:
+        return True
+
+    for allowed in self.settings.allowed_origins:
+        if allowed.endswith(":*"):
+            base_origin = allowed[:-2]
+            if origin.startswith(base_origin + ":") or fnmatch.fnmatch(origin, base_origin):
+                return True
+        if fnmatch.fnmatch(origin, allowed):
+            return True
+
+    logger.warning(f"Invalid Origin header: {origin}")
+    return False
+
+
+TransportSecurityMiddleware._validate_host = _enhanced_validate_host
+TransportSecurityMiddleware._validate_origin = _enhanced_validate_origin
 
 mcp = MCPServer("Jev-AIDR-Gatekeeper")
 
