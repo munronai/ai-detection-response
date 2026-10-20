@@ -16,9 +16,9 @@ ACTION_BANNERS = {
         "Low-risk internal terminology or non-sensitive source code logged for compliance without alerting the user.",
     ),
     "NUDGE": (
-        "⚠️ INLINE NUDGE → Educational Security Alert Surface",
+        "⚠️ POLICY WARNING → Interactive Policy Warning Surface",
         "warning",
-        "Detected unmasked customer PII or sensitive project reference. Allowed with inline compliance notification.",
+        "Detected unmasked customer PII or sensitive project reference. Allowed with inline compliance warning dialog.",
     ),
     "REDACT": (
         "✂️ REDACTED → Sensitive Tokens Masked Before LLM Forwarding",
@@ -175,7 +175,7 @@ def render_pipeline_walkthrough_card(record: Dict[str, Any], key_prefix: str = "
             if action == "ALLOW":
                 st.success("✅ **Forwarded to Target LLM**  \nTTFT latency unaffected.")
             elif action == "NUDGE":
-                st.warning("⚠️ **Inline Warning Attached**  \nUser alerted to PII handling.")
+                st.warning("⚠️ **Policy Warning Triggered**  \nUser alerted with compliance confirmation.")
             elif action == "BLOCK":
                 st.error("🛑 **Egress Blocked!**  \nPayload terminated at edge.")
             elif action == "REDACT":

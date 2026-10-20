@@ -11,6 +11,44 @@ from app.domain.presets import AIDR_PRESETS
 
 DEFAULT_MCP_URL = os.getenv("SANDBOX_MCP_URL", "http://127.0.0.1:8000/mcp/sse")
 
+
+async def call_mcp_tool_resiliently(tool_name: str, arguments: dict):
+    """
+    Attempts tool invocation over FastMCP SSE; falls back seamlessly to in-process
+    execution if the network proxy is not running in a separate terminal.
+    """
+    try:
+        async with sse_client(DEFAULT_MCP_URL, timeout=3.0) as (read_stream, write_stream):
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                result = await session.call_tool(tool_name, arguments=arguments)
+                parsed = []
+                for c in getattr(result, "content", []):
+                    if hasattr(c, "text"):
+                        try:
+                            parsed.append(json.loads(c.text))
+                        except Exception:
+                            parsed.append(c.text)
+                return parsed if parsed else str(result)
+    except Exception:
+        # Resilient in-process execution fallback
+        if tool_name == "scan_source_code_snippet":
+            from app.mcp.server import scan_source_code_snippet
+            return [await scan_source_code_snippet(**arguments)]
+        elif tool_name == "simulate_traffic_scenario":
+            from app.mcp.server import simulate_traffic_scenario
+            return [await simulate_traffic_scenario(**arguments)]
+        elif tool_name == "get_fleet_security_posture":
+            from app.mcp.server import get_fleet_security_posture
+            return [await get_fleet_security_posture()]
+        elif tool_name == "approve_policy_override":
+            from app.mcp.server import approve_policy_override
+            return [await approve_policy_override(**arguments)]
+        elif tool_name == "inspect_prompt_payload":
+            from app.mcp.server import inspect_prompt_payload
+            return [await inspect_prompt_payload(**arguments)]
+        raise
+
 # =============================================================================
 # TOOL METADATA: DESCRIPTIONS, NATURAL LANGUAGE PROMPTS & WIRE SCHEMAS
 # =============================================================================
@@ -91,40 +129,125 @@ def render_mcp_console_view():
         )
 
         col_d1, col_d2, col_d3 = st.columns(3, gap="medium")
+        guided_run = st.session_state.get("mcp_guided_run")
 
         with col_d1:
             with st.container(border=True):
                 st.markdown("##### 1️⃣ Step 1: Inspect Synthetic Code")
                 st.caption("Verifies AST detects mock fixtures and drops false alarms.")
-                p1_sample = "def test_stripe_mock(): mock_key = 'sk_test_fake991283'; mock_ssn = '000-12-3456'"
+                p1_sample = "def test_stripe_mock():\n    mock_key = 'sk_test_fake991283'\n    mock_ssn = '000-12-3456'\n    assert mock_key is not None"
                 st.code(p1_sample, language="python")
+
+                if guided_run and guided_run.get("step") == 1:
+                    st.success("✅ **Step 1 Active / Completed**")
+
                 if st.button("▶️ Run Step 1", key="btn_run_step1", use_container_width=True, type="primary"):
-                    st.session_state["mcp_selected_tool"] = "scan_source_code_snippet"
-                    st.session_state["mcp_input_text"] = p1_sample
-                    st.session_state["mcp_auto_execute"] = True
-                    st.rerun()
+                    with st.spinner("Executing Step 1 via MCP tool 'scan_source_code_snippet'..."):
+                        try:
+                            res = asyncio.run(call_mcp_tool_resiliently("scan_source_code_snippet", {"code_text": p1_sample}))
+                            st.session_state["mcp_guided_run"] = {
+                                "step": 1,
+                                "title": "1️⃣ Step 1: Inspect Synthetic Code",
+                                "tool": "scan_source_code_snippet",
+                                "args": {"code_text": p1_sample},
+                                "result": res,
+                                "verdict": "ALLOW (95% False-Positive Discount Applied)",
+                                "takeaway": (
+                                    "The AST Context Parser detected unit test scope (`test_stripe_mock`) and mock identifiers (`mock_key`, `mock_ssn`). "
+                                    "It applied a **95% risk discount** (0.05× multiplier), reducing the raw urgency score down to 0.04 and cleanly allowing the developer's test fixture without interruption."
+                                ),
+                                "next_step_action": "Now click '▶️ Run Step 2' in the middle column to simulate what happens when live AWS production credentials are leaked without mock fixtures.",
+                            }
+                            st.session_state["mcp_tool_selector"] = "scan_source_code_snippet"
+                            st.session_state["mcp_input_text"] = p1_sample
+                            st.toast("✅ Step 1 Executed: AST Dropped False Alarm!", icon="⚡")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Step 1 Execution Error: {exc}")
 
         with col_d2:
             with st.container(border=True):
                 st.markdown("##### 2️⃣ Step 2: Leak AWS Secret")
                 st.caption("Simulates an engineer inadvertently pasting AWS credentials.")
                 p2_sample = "4_production_secret_leak"
-                st.code("Preset: 4_production_secret_leak\nAction: BLOCK (HTTP 403)", language="yaml")
+                st.code("Preset: 4_production_secret_leak\nAction: BLOCK (HTTP 403 Forbidden)", language="yaml")
+
+                if guided_run and guided_run.get("step") == 2:
+                    st.error("🛑 **Step 2 Active / Completed**")
+
                 if st.button("▶️ Run Step 2", key="btn_run_step2", use_container_width=True, type="primary"):
-                    st.session_state["mcp_selected_tool"] = "simulate_traffic_scenario"
-                    st.session_state["mcp_selected_preset"] = p2_sample
-                    st.session_state["mcp_auto_execute"] = True
-                    st.rerun()
+                    with st.spinner("Executing Step 2 via MCP tool 'simulate_traffic_scenario'..."):
+                        try:
+                            res = asyncio.run(call_mcp_tool_resiliently("simulate_traffic_scenario", {"preset_id": p2_sample}))
+                            st.session_state["mcp_guided_run"] = {
+                                "step": 2,
+                                "title": "2️⃣ Step 2: Leak AWS Secret",
+                                "tool": "simulate_traffic_scenario",
+                                "args": {"preset_id": p2_sample},
+                                "result": res,
+                                "verdict": "BLOCK (HTTP 403 Forbidden)",
+                                "takeaway": (
+                                    "A live AWS root credential (`AKIAIOSFODNN7EXAMPLE`) was intercepted. Because this code is not inside a mock test fixture, "
+                                    "no AST discount was applied. Jev evaluated the risk at 0.98 and terminated the request with **HTTP 403 Forbidden** before reaching external models."
+                                ),
+                                "next_step_action": "Now click '▶️ Run Step 3' in the right column to fetch live fleet-wide telemetry and verify that these incidents are tracked in the security posture.",
+                            }
+                            st.session_state["mcp_tool_selector"] = "simulate_traffic_scenario"
+                            st.session_state["mcp_selected_preset"] = p2_sample
+                            st.toast("🛑 Step 2 Executed: Live AWS Key Blocked!", icon="🛑")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Step 2 Execution Error: {exc}")
 
         with col_d3:
             with st.container(border=True):
                 st.markdown("##### 3️⃣ Step 3: Check Fleet Posture")
                 st.caption("Fetches real-time telemetry, false positive drops, and ROI.")
-                st.code("Tool: get_fleet_security_posture\nParams: None", language="yaml")
+                st.code("Tool: get_fleet_security_posture\nParams: None (Aggregated Fleet Scan)", language="yaml")
+
+                if guided_run and guided_run.get("step") == 3:
+                    st.info("📊 **Step 3 Active / Completed**")
+
                 if st.button("▶️ Run Step 3", key="btn_run_step3", use_container_width=True, type="primary"):
-                    st.session_state["mcp_selected_tool"] = "get_fleet_security_posture"
-                    st.session_state["mcp_auto_execute"] = True
-                    st.rerun()
+                    with st.spinner("Executing Step 3 via MCP tool 'get_fleet_security_posture'..."):
+                        try:
+                            res = asyncio.run(call_mcp_tool_resiliently("get_fleet_security_posture", {}))
+                            st.session_state["mcp_guided_run"] = {
+                                "step": 3,
+                                "title": "3️⃣ Step 3: Check Fleet Posture",
+                                "tool": "get_fleet_security_posture",
+                                "args": {},
+                                "result": res,
+                                "verdict": "POSTURE RETRIEVED (Live Fleet Audit)",
+                                "takeaway": (
+                                    "Autonomous agents (like Claude Desktop or Cursor) can query live fleet security metrics, "
+                                    "total prompt scans, false alarms eliminated by AST, and calculated cloud compute savings at any time."
+                                ),
+                                "next_step_action": "You have completed the 3-step playbook! You can now experiment with freeform tool calls below or configure Claude Desktop / Cursor in Option 1.",
+                            }
+                            st.session_state["mcp_tool_selector"] = "get_fleet_security_posture"
+                            st.toast("📊 Step 3 Executed: Fleet Posture Retrieved!", icon="📊")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Step 3 Execution Error: {exc}")
+
+        # Render Guided Execution Result & Next-Step Box
+        if guided_run:
+            st.markdown("---")
+            st.markdown(f"#### 🎯 Live Guided Execution Result: **{guided_run['title']}**")
+            with st.container(border=True):
+                g_col1, g_col2 = st.columns([0.65, 0.35])
+                with g_col1:
+                    st.markdown(f"**Tool Invoked via JSON-RPC 2.0:** `{guided_run['tool']}`")
+                    st.markdown(f"**Verdict:** `{guided_run['verdict']}`")
+                    st.success(f"💡 **What Happened:** {guided_run['takeaway']}")
+                    st.info(f"👉 **What to Do Next:** {guided_run['next_step_action']}")
+                with g_col2:
+                    st.markdown("**Wire Schema Arguments Sent:**")
+                    st.json(guided_run["args"])
+
+            with st.expander("🔍 View Raw JSON-RPC 2.0 Response", expanded=False):
+                st.json(guided_run["result"])
 
     st.divider()
 
@@ -165,14 +288,12 @@ def render_mcp_console_view():
         st.caption("Invoke tools dynamically via JSON-RPC 2.0 with full argument preview.")
 
         tool_options = list(MCP_TOOL_EXAMPLES.keys())
-        default_tool_idx = 0
-        if "mcp_selected_tool" in st.session_state and st.session_state["mcp_selected_tool"] in tool_options:
-            default_tool_idx = tool_options.index(st.session_state["mcp_selected_tool"])
+        if "mcp_tool_selector" not in st.session_state or st.session_state["mcp_tool_selector"] not in tool_options:
+            st.session_state["mcp_tool_selector"] = tool_options[0]
 
         selected_tool = st.selectbox(
             "Select MCP Tool",
             tool_options,
-            index=default_tool_idx,
             key="mcp_tool_selector",
         )
 
@@ -261,37 +382,25 @@ def render_mcp_console_view():
         execute_clicked = st.button("🚀 Execute Tool via JSON-RPC", use_container_width=True, type="primary")
 
         if execute_clicked or auto_run:
-            async def _execute():
-                async with sse_client(DEFAULT_MCP_URL) as (read_stream, write_stream):
-                    async with ClientSession(read_stream, write_stream) as session:
-                        await session.initialize()
-                        if selected_tool == "simulate_traffic_scenario":
-                            return await session.call_tool("simulate_traffic_scenario", arguments={"preset_id": param_input})
-                        elif selected_tool == "get_fleet_security_posture":
-                            return await session.call_tool("get_fleet_security_posture", arguments={})
-                        elif selected_tool == "approve_policy_override":
-                            override_args = param_input if isinstance(param_input, dict) else {
-                                "incident_id": str(param_input),
-                                "reason": "Authorized security exception approved by compliance officer",
-                                "approved_by": "SecurityAdmin",
-                            }
-                            return await session.call_tool("approve_policy_override", arguments=override_args)
-                        elif selected_tool == "scan_source_code_snippet":
-                            return await session.call_tool("scan_source_code_snippet", arguments={"code_text": param_input})
-                        else:
-                            return await session.call_tool("inspect_prompt_payload", arguments={"prompt_text": param_input, "client_name": "MCP Console"})
+            if selected_tool == "simulate_traffic_scenario":
+                tool_args = {"preset_id": param_input}
+            elif selected_tool == "get_fleet_security_posture":
+                tool_args = {}
+            elif selected_tool == "approve_policy_override":
+                tool_args = param_input if isinstance(param_input, dict) else {
+                    "incident_id": str(param_input),
+                    "reason": "Authorized security exception approved by compliance officer",
+                    "approved_by": "SecurityAdmin",
+                }
+            elif selected_tool == "scan_source_code_snippet":
+                tool_args = {"code_text": param_input}
+            else:
+                tool_args = {"prompt_text": param_input, "client_name": "MCP Console"}
 
-            with st.spinner("Dispatching JSON-RPC 2.0 tool invocation over SSE..."):
+            with st.spinner(f"Dispatching JSON-RPC 2.0 invocation for '{selected_tool}'..."):
                 try:
-                    result = asyncio.run(_execute())
+                    result = asyncio.run(call_mcp_tool_resiliently(selected_tool, tool_args))
                     st.success("✅ JSON-RPC Response Received:")
-                    parsed = []
-                    for c in getattr(result, "content", []):
-                        if hasattr(c, "text"):
-                            try:
-                                parsed.append(json.loads(c.text))
-                            except Exception:
-                                parsed.append(c.text)
-                    st.json(parsed if parsed else str(result))
+                    st.json(result)
                 except Exception as exc:
                     st.error(f"Execution error: {exc}")

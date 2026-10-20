@@ -78,7 +78,7 @@ def render_landing_page(
             st.markdown("#### 4️⃣ Policy Enforcement")
             st.caption("Deterministic Action Matrix")
             st.write(
-                "Applies deterministic policy actions: `ALLOW`, `SILENT_LOG`, `NUDGE`, `REDACT`, "
+                "Applies deterministic policy actions: `ALLOW`, `SILENT_LOG`, `WARNING` (soft gate), `REDACT`, "
                 "or `BLOCK` with `HTTP 403 Forbidden`."
             )
 
@@ -87,11 +87,11 @@ def render_landing_page(
     # 5 Presets Guide
     st.markdown("## 🧪 5 Golden Presets Quick Reference")
     st.markdown("""
-1. **1️⃣ Synthetic Test Fixture**: Demonstrates AST eliminating a false positive on mock billing code.
-2. **2️⃣ Routine Developer Query**: Clean sorting query passed with sub-15ms latency.
-3. **3️⃣ Ambiguous Customer PII**: Unmasked DOB/address surfacing an inline educational nudge.
-4. **4️⃣ Production AWS Cloud Secret**: Live cloud credential terminated with HTTP 403.
-5. **5️⃣ Base64 Private Key Exfiltration**: Obfuscated payload caught by Jev exfiltration scoring.
+1. **1️⃣ Synthetic Test Fixture**: Demonstrates AST eliminating a false positive on mock billing code in Cursor IDE.
+2. **2️⃣ Routine Developer Query**: Clean sorting query passed with sub-15ms latency in VS Code Copilot.
+3. **3️⃣ Ambiguous Customer PII**: Unmasked DOB/address in Copilot 365 surfacing an inline policy warning dialog.
+4. **4️⃣ Production AWS Cloud Secret**: Live cloud credential terminated with HTTP 403 at perimeter.
+5. **5️⃣ Base64 Private Key Exfiltration**: Obfuscated payload caught by Jev exfiltration scoring in CLI agent.
 """)
 
     st.page_link(page_dashboard, label="Test These Presets in the Dashboard →", icon="🎛️", use_container_width=True)

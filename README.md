@@ -131,9 +131,9 @@ The Streamlit interface is organized into two primary navigation categories: **S
    * Quick-reference cards for the **5 Golden Presets** and direct one-click CTA paths to the Control Deck and Product Insights.
 
 2. **🎛️ Live AIDR Control Deck (`sandbox_dashboard.py`)**:
-   * **Authoritative Engine Status Panel**: Displays the active engine mode (`🧪 TEST / SIMULATED JEV` vs `🟢 LIVE TYPESAFE AI API`), authentication health, policy cutoffs (`Block ≥ 0.92`, `Nudge ≥ 0.80`, `Allow ≤ 0.30`), and an instant 1-click **"Switch Engine Mode"** toggle.
+   * **Authoritative Engine Status Panel**: Displays the active engine mode (`🧪 TEST / SIMULATED JEV` vs `🟢 LIVE TYPESAFE AI API`), authentication health, policy cutoffs (`Block ≥ 0.92`, `Warning ≥ 0.80`, `Allow ≤ 0.30`), and an instant 1-click **"Switch Engine Mode"** toggle.
    * **Scenario Selector with Prompt Previews**: Inspect any of the **5 Golden Presets** before execution to preview the exact code payload, category, target client, and expected action.
-   * **4-Stage Visual Walkthrough Card**: Inspect client fingerprinting, AST context analysis ($95\%$ synthetic fixture discount), Jev System 1 calibrated score ($<15\text{ms}$), and policy enforcement actions (`ALLOW`, `NUDGE`, `REDACT`, `BLOCK`).
+   * **4-Stage Visual Walkthrough Card**: Inspect client fingerprinting, AST context analysis ($95\%$ synthetic fixture discount), Jev System 1 calibrated score ($<15\text{ms}$), and policy enforcement actions (`ALLOW`, `WARNING`, `REDACT`, `BLOCK`).
    * **Per-Simulation Unit Economics Breakdown**: Tracks token counts, Jev System 1 compute costs ($0.000010 on ARM vCPU), traditional multi-GPU SLM costs ($0.000500), and net run savings ($0.000490 / 98.0% reduction) alongside fleet-level cost extrapolation.
 
 3. **📐 Product Insights: Research, Architecture & Modeled Economics (`product_insights.py`)**:

@@ -153,8 +153,8 @@ def render_product_insights_view(
         * **System 1 Intent & Entity Scoring:** The prompt immediately enters Jev System 1 classification. Jev evaluates corporate confidentiality, customer PII, and exfiltration risk in under 15ms.
         * **Hybrid Coding in Knowledge Tools:** If an analyst asks Copilot 365 to debug an Excel Python formula, SQL script, or mock data table, the AST parser seamlessly activates to prevent false-positive blocks on synthetic test data.
 
-        #### 3. Preserving End-User Productivity with Educational Nudges
-        Instead of a heavy binary block that frustrates business staff, Jev pairs calibrated risk scoring with **frictionless confirmation nudges** (e.g., asking *"This prompt contains customer names; do you wish to proceed under Data Policy DP-104?"*), logging the justification in real time.
+        #### 3. Preserving End-User Productivity with Interactive Policy Warnings
+        Instead of a heavy binary block that frustrates business staff, Jev pairs calibrated risk scoring with **frictionless policy warnings** (e.g., displaying an interactive dialog: *"This prompt contains customer records; do you wish to proceed under Data Policy DP-104?"*), logging the employee justification in real time.
         """)
 
     st.divider()
